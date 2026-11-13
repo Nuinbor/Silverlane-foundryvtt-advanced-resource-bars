@@ -7,11 +7,12 @@ import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 import { unzipSync, strFromU8 } from "fflate";
 
-test("manifest targets v14/DnD5e and every registered asset exists", async () => {
+test("manifest allows Foundry 13.347+ and D&D5e 5.3.3 without missing registered assets", async () => {
   const manifest = JSON.parse(await readFile("module.json", "utf8"));
   assert.equal(manifest.id, "silverlane-resource-bars");
-  assert.equal(manifest.compatibility.minimum, "14.367");
+  assert.equal(manifest.compatibility.minimum, "13.347");
   assert.equal(manifest.relationships.systems[0].id, "dnd5e");
+  assert.equal(manifest.relationships.systems[0].compatibility.minimum, "5.3.3");
   for (const file of [...manifest.esmodules, ...manifest.styles, ...manifest.languages.map(l => l.path)]) await access(file);
 });
 

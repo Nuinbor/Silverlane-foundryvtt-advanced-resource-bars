@@ -1,6 +1,8 @@
 # Silverlane Advanced Resource Bars
 
-Кастомные шкалы ресурсов, пороговые дебаффы и автоматизация атак для **Foundry VTT 14.367+ / D&D5e 6.1+**. Не требует Midi-QOL, DAE, libWrapper или socketlib. Интерфейс на русском и английском.
+Кастомные шкалы ресурсов, пороговые дебаффы и автоматизация атак для **Foundry VTT 13.347+ / 14 и D&D5e 5.3.3+**. Не требует Midi-QOL, DAE, libWrapper или socketlib. Интерфейс на русском и английском.
+
+Начиная с версии модуля **0.2.0** поддерживается связка **Foundry 14 + D&D5e 5.3.3** без обновления системы. Также поддерживается Foundry 13.347+: модуль автоматически выбирает формат эффектов по версии Foundry. Существующие настройки шкал и значения персонажей сохраняются.
 
 ## Возможности
 
@@ -24,7 +26,7 @@ https://github.com/Nuinbor/Silverlane-foundryvtt-advanced-resource-bars/releases
 
 Для ручной установки скачайте `silverlane-resource-bars.zip` из [последнего Release](https://github.com/Nuinbor/Silverlane-foundryvtt-advanced-resource-bars/releases/latest) и распакуйте содержимое в `Data/modules/silverlane-resource-bars/`. Файл `module.json` должен лежать непосредственно в этой папке. Перезапустите Foundry и включите модуль.
 
-Workflow `release.yml` собирает и публикует релиз при пуше тега `v0.1.0` (версия тега должна совпадать с `module.json` и `package.json`).
+Workflow `release.yml` собирает и публикует релиз при пуше тега `v0.2.0` (версия тега должна совпадать с `module.json` и `package.json`).
 
 ## Быстрый старт
 
@@ -52,7 +54,7 @@ await game.modules.get("silverlane-resource-bars").api.open();
 [{ "key": "system.attributes.ac.bonus", "type": "add", "phase": "initial", "value": "-2" }]
 ```
 
-Можно одновременно выбрать статус и добавить собственные изменения. Используется нативный формат v14 `system.changes`; числовой `mode` 0–5 тоже принимается и преобразуется в `type`. Сложные системные поля и тип `custom` имеют смысл только если сама D&D5e поддерживает соответствующую механику; модуль не исполняет JavaScript из настроек. Длительность эффекта задаётся целым числом секунд.
+Можно одновременно выбрать статус и добавить собственные изменения. В настройках принимаются `type` и числовой `mode` 0–5; модуль автоматически переводит изменения в формат установленной версии Foundry: `changes` / `mode` / `duration.seconds` на v13 и `system.changes` / `type` / `duration.value` на v14. На Foundry 13 поддерживается фаза `initial`; другие фазы требуют Foundry 14. Сложные системные поля и тип `custom` имеют смысл только если сама D&D5e поддерживает соответствующую механику; модуль не исполняет JavaScript из настроек. Длительность эффекта задаётся целым числом секунд.
 
 ### «При попадании: +5 к поражению нервов»
 
@@ -67,6 +69,8 @@ await game.modules.get("silverlane-resource-bars").api.open();
 
 3. Добавьте правило: «Поражение нервов», изменение **5**, «При подтверждённом попадании». При необходимости выберите конкретную активность.
 4. Перед броском **отметьте цель Foundry**. После броска атаки D&D5e модуль берёт результаты попадания из карточки атаки и увеличивает шкалу попавших целей. Промахи и цели без определённого КД не учитываются.
+
+В D&D5e 5.3.3 используются UUID персонажей и КД, сохранённые в `flags.dnd5e.targets` в момент броска; натуральные критические успехи и провалы учитываются. Переключение выбранных целей или изменение КД после броска не меняет исходные цели атаки. В D&D5e 6.1 используются системные результаты `evaluatedTargets`. В обоих случаях повторное обновление той же карточки не начисляет ресурс повторно.
 
 Автоматические попадания обрабатывает один активный GM. Бросок, выполненный мастером, может изменять шкалы чужих целей — это основной сценарий атаки монстра по персонажу. Бросок игрока может автоматически менять только Actor, которыми владеет сам автор броска, даже если GM подключён: событие из чата не даёт дополнительных прав. Для атаки игрока по чужому NPC мастер должен выполнить бросок или явно применить прибавку через API. Без GM автор броска также ограничен собственными целями.
 
@@ -142,6 +146,6 @@ npm run build
 
 ## English summary
 
-Standalone Foundry v14.367+ / D&D5e 6.1+ resource tracker. Create a Script macro containing `await game.modules.get("silverlane-resource-bars").api.open();`, or press Alt+R. GMs configure world resources through module settings and attack rules through the Item sheet header button. The default nerve damage bar warns at 20 and applies Paralyzed/reset-to-zero at 100 on every full cycle without stacking an existing managed effect. Gold ticks record previous threshold crossings. “Zero” preserves sticky effects/history; “Treat” removes only this resource's effects and history. Native hits require targeted tokens. Only GM-authored attacks can automate foreign-Actor writes; player-authored attacks remain limited to that player's owned Actors. Midi-QOL is optional. Install using the Manifest URL above in Foundry's Install Module dialog, or extract the release ZIP into `Data/modules/silverlane-resource-bars/`.
+Standalone Foundry v13.347+ / v14 resource tracker supporting D&D5e 5.3.3+, including Foundry 14 with D&D5e 5.3.3. Create a Script macro containing `await game.modules.get("silverlane-resource-bars").api.open();`, or press Alt+R. GMs configure world resources through module settings and attack rules through the Item sheet header button. The default nerve damage bar warns at 20 and applies Paralyzed/reset-to-zero at 100 on every full cycle without stacking an existing managed effect. Gold ticks record previous threshold crossings. “Zero” preserves sticky effects/history; “Treat” removes only this resource's effects and history. Native hits require targeted tokens. Only GM-authored attacks can automate foreign-Actor writes; player-authored attacks remain limited to that player's owned Actors. Midi-QOL is optional. Install using the Manifest URL above in Foundry's Install Module dialog, or extract the release ZIP into `Data/modules/silverlane-resource-bars/`.
 
 MIT license.

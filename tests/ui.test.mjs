@@ -89,3 +89,19 @@ test("D&D5e 6.1 status dictionaries populate and save the GM resource editor", a
   assert.equal(saved?.[0].thresholds[1].status, "paralyzed");
   assert.equal(closed, true);
 });
+
+test("D&D5e 5.3.3 / Foundry 13 status arrays populate the same resource editor", async () => {
+  globalThis.game = {
+    user: { isGM: true }, i18n: { localize: key => key },
+    settings: { get: () => defaultDefinitions() }
+  };
+  globalThis.CONFIG = { statusEffects: [
+    { id: "paralyzed", name: "Paralyzed" }, { id: "poisoned", name: "Poisoned" }
+  ] };
+  const app = new ResourceConfig();
+  const context = await app._prepareContext();
+  assert.equal(context.selected.thresholds[1].statuses.find(s => s.id === "paralyzed").selected, true);
+  const form = new Window().document.createElement("form");
+  form.innerHTML = Handlebars.compile(await readFile(new URL("../templates/resource-config.hbs", import.meta.url), "utf8"))(context);
+  assert.equal(readDefinitionForm(form, "nerve-damage").thresholds[1].status, "paralyzed");
+});

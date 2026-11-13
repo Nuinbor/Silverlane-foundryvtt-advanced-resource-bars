@@ -1,5 +1,20 @@
 import { MODULE_ID, numeric } from "./domain.mjs";
 
+function systemFlag(message, key) {
+  return message.getFlag?.("dnd5e", key) ?? key.split(".").reduce((value, part) => value?.[part], message.flags?.dnd5e);
+}
+
+/** D&D5e 5.3 snapshots Actor UUID/AC in flags instead of evaluatedTargets. */
+function legacyTargets(message) {
+  const roll = message.rolls?.[0];
+  const targets = systemFlag(message, "targets");
+  if (!Number.isFinite(roll?.total) || !Array.isArray(targets)) return [];
+  return targets.filter(target => typeof target.uuid === "string" && Number.isFinite(target.ac)).map(target => ({
+    actor: target.uuid,
+    isMiss: Boolean(roll.isFumble || (!roll.isCritical && roll.total < target.ac))
+  }));
+}
+
 export function validateItemRules(input) {
   if (!Array.isArray(input) || input.length > 100) throw new Error("Expected up to 100 attack rules.");
   return input.map(rule => {
@@ -39,13 +54,14 @@ export class CombatIntegration {
   get midiActive() { return Boolean(this.game.modules.get("midi-qol")?.active); }
 
   async onAttackMessage(message) {
-    if (this.midiActive || message.type !== "attack" || !message.rolls?.length || !this.#authority(message.author?.id)) return;
+    const isAttack = message.type === "attack" || systemFlag(message, "roll.type") === "attack";
+    if (this.midiActive || !isAttack || !message.rolls?.length || !this.#authority(message.author?.id)) return;
     const item = message.getAssociatedItem?.();
     const activityId = message.getAssociatedActivity?.()?.id ?? message.system?.activity?.id;
     const rules = this.#rules(item, "hit", activityId);
     if (!rules.length) return;
     const actors = new Map();
-    for (const target of message.system?.evaluatedTargets ?? []) {
+    for (const target of message.system?.evaluatedTargets ?? legacyTargets(message)) {
       if (target.isMiss !== false) continue;
       const document = await this.resolve(target.token ?? target.actor);
       const actor = document?.documentName === "Actor" ? document : document?.actor;

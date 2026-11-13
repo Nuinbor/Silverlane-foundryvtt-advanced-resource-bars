@@ -176,6 +176,38 @@ test("custom-only v14 effects use the D&D5e base type and native system.changes"
   assert.equal(effect.system.changes[0].value, "-2");
 });
 
+test("Foundry 13 serializes custom modifiers and duration using the legacy schema", async () => {
+  const definition = defaultDefinitions()[0];
+  const threshold = { ...definition.thresholds[0], duration: 60, changes: [
+    { key: "system.attributes.ac.bonus", type: "add", phase: "initial", value: "-2" },
+    { key: "system.attributes.movement.walk", type: "override", value: "0", priority: 25 }
+  ] };
+  const effect = await buildEffect(definition, threshold, statusFixture, 1234, 13);
+  assert.deepEqual(effect.changes, [
+    { key: "system.attributes.ac.bonus", mode: 2, value: "-2", priority: null },
+    { key: "system.attributes.movement.walk", mode: 5, value: "0", priority: 25 }
+  ]);
+  assert.equal(effect.system?.changes, undefined);
+  assert.deepEqual(effect.duration, { seconds: 60, startTime: 1234 });
+  assert.equal(effect.start, undefined);
+});
+
+test("Foundry 13 preserves D&D5e 5.3.3 native statuses and existing legacy changes", async () => {
+  const definition = defaultDefinitions()[0];
+  const threshold = { ...definition.thresholds[1], changes: [{ key: "system.attributes.ac.bonus", mode: 2, value: "-2" }] };
+  const effect = await buildEffect(definition, threshold, async () => ({
+    _id: "native", type: "base", name: "Paralyzed", statuses: ["paralyzed", "incapacitated"],
+    description: "System condition rules", changes: [{ key: "system.attributes.movement.walk", mode: 5, value: "0", priority: 20 }]
+  }), 0, 13);
+  assert.equal(effect._id, undefined);
+  assert.deepEqual(effect.statuses, ["paralyzed", "incapacitated"]);
+  assert.equal(effect.description, "System condition rules");
+  assert.equal(effect.changes.length, 2);
+  assert.equal(effect.changes[0].mode, 5);
+  assert.equal(effect.changes[1].mode, 2);
+  assert.equal(effect.system?.changes, undefined);
+});
+
 test("failed resource persistence compensates newly created terminal effects", async () => {
   const { actor, service } = setup();
   await service.set(actor, "nerve-damage", 95);

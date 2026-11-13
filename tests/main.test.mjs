@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { MODULE_ID } from "../scripts/domain.mjs";
 import { Window } from "happy-dom";
+import { actorFixture, stateOf } from "./helpers.mjs";
 
 const hooks = new Map();
 const settings = new Map();
@@ -52,4 +53,61 @@ test("sheet actions attach to the outer frame when v14 hooks provide inner conte
   assert.equal(frame.querySelectorAll(".window-header .srb-sheet-button").length, 1);
   hooks.get("renderApplicationV2")(app, frame.querySelector(".window-content"));
   assert.equal(frame.querySelectorAll(".window-header .srb-sheet-button").length, 1);
+});
+
+for (const generation of [13, 14]) test(`module API preserves D&D5e 5.3.3 system statuses on Foundry ${generation}`, async () => {
+  game.release = { generation };
+  game.system.version = "5.3.3";
+  globalThis.CONFIG = { ActiveEffect: { documentClass: {
+    async fromStatusEffect(status) {
+      assert.equal(status, "paralyzed");
+      return { toObject: () => ({ type: "base", statuses: ["paralyzed", "incapacitated"],
+        ...(generation < 14 ? { changes: [] } : { system: { changes: [] } }) }) };
+    }
+  } } };
+  const actor = actorFixture();
+  try {
+    await game.modules.get(MODULE_ID).api.set(actor, "nerve-damage", 100);
+    assert.equal(stateOf(actor).value, 0);
+    assert.deepEqual(actor.effects[0].statuses, ["paralyzed", "incapacitated"]);
+    assert.ok(Array.isArray(generation < 14 ? actor.effects[0].changes : actor.effects[0].system.changes));
+    if (generation < 14) assert.equal(actor.effects[0].system?.changes, undefined);
+    else assert.equal(actor.effects[0].changes, undefined);
+  } finally {
+    delete game.release;
+    game.system.version = "6.1.0";
+    delete globalThis.CONFIG;
+  }
+});
+
+test("Foundry 14 / D&D5e 5.3.3 handles a legacy monster attack through registered chat hooks", async () => {
+  game.release = { generation: 14 };
+  game.system.version = "5.3.3";
+  globalThis.CONFIG = { ActiveEffect: { documentClass: { async fromStatusEffect() {
+    return { toObject: () => ({ type: "base", statuses: ["paralyzed", "incapacitated"], system: { changes: [] } }) };
+  } } } };
+  const actor = actorFixture();
+  globalThis.fromUuid = async uuid => uuid === actor.uuid ? actor : null;
+  const message = {
+    uuid: "ChatMessage.legacy533", type: "base", author: game.user,
+    rolls: [{ total: 20, isCritical: false, isFumble: false }], system: {},
+    flags: { dnd5e: { roll: { type: "attack" }, targets: [{ uuid: actor.uuid, ac: 15 }] } },
+    getAssociatedItem: () => ({ getFlag: () => [{ resourceId: "nerve-damage", amount: 5, trigger: "hit" }] }),
+    getAssociatedActivity: () => ({ id: "bite" })
+  };
+  try {
+    await game.modules.get(MODULE_ID).api.set(actor, "nerve-damage", 95);
+    await hooks.get("createChatMessage")(message);
+    await hooks.get("updateChatMessage")(message);
+    assert.equal(stateOf(actor).value, 0);
+    assert.equal(stateOf(actor).cycles, 1);
+    assert.equal(actor.effects.length, 1);
+    assert.deepEqual(actor.effects[0].statuses, ["paralyzed", "incapacitated"]);
+    assert.ok(Array.isArray(actor.effects[0].system.changes));
+  } finally {
+    delete game.release;
+    game.system.version = "6.1.0";
+    delete globalThis.CONFIG;
+    delete globalThis.fromUuid;
+  }
 });

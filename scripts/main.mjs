@@ -91,7 +91,7 @@ Hooks.once("init", () => {
   });
   service = new ResourceService({
     definitions,
-    statusEffect: async status => (await foundry.documents.ActiveEffect.implementation.fromStatusEffect(status)).toObject()
+    statusEffect: async status => (await CONFIG.ActiveEffect.documentClass.fromStatusEffect(status)).toObject()
   });
   combat = new CombatIntegration({ service, game });
   game.modules.get(MODULE_ID).api = Object.freeze({

@@ -123,3 +123,68 @@ test("malformed item rules are rejected before the combat adapter mutates data",
     assert.throws(() => validateItemRules(rules));
   }
 });
+
+function legacyMessage(message, targets, roll = { total: 15, isCritical: false, isFumble: false }) {
+  return {
+    ...message, type: "base", system: {}, rolls: [roll],
+    flags: { dnd5e: { roll: { type: "attack" }, targets } },
+    getFlag(scope, key) { return key.split(".").reduce((value, part) => value?.[part], this.flags[scope]); }
+  };
+}
+
+test("D&D5e 5.3.3 attacks use stored Actor UUIDs and AC, including equality and replay", async () => {
+  const { integration, message, hero, other, documents } = setup();
+  documents.set(hero.uuid, hero);
+  documents.set(other.uuid, other);
+  hero.system = { attributes: { ac: { value: 25 } } }; // Current AC must not replace the roll-time snapshot.
+  const legacy = legacyMessage(message, [{ uuid: hero.uuid, ac: 15 }, { uuid: other.uuid, ac: 16 }]);
+  await integration.onAttackMessage(legacy);
+  await integration.onAttackMessage(legacy);
+  assert.equal(stateOf(hero)?.value, 5);
+  assert.equal(stateOf(other), undefined);
+});
+
+test("D&D5e 5.3.3 criticals hit high AC, fumbles miss and unknown AC is never guessed", async () => {
+  for (const { roll, ac, value } of [
+    { roll: { total: 2, isCritical: true, isFumble: false }, ac: 40, value: 5 },
+    { roll: { total: 30, isCritical: false, isFumble: true }, ac: 10, value: undefined },
+    { roll: { total: 30, isCritical: false, isFumble: false }, ac: null, value: undefined },
+    { roll: { total: 30, isCritical: true, isFumble: false }, ac: null, value: undefined },
+    { roll: { total: NaN, isCritical: false, isFumble: false }, ac: 15, value: undefined }
+  ]) {
+    const { integration, message, hero, documents } = setup();
+    documents.set(hero.uuid, hero);
+    await integration.onAttackMessage(legacyMessage(message, [{ uuid: hero.uuid, ac }], roll));
+    assert.equal(stateOf(hero)?.value, value);
+  }
+});
+
+test("legacy hit automation completes the full monster +5 threshold and paralysis/reset cycle", async () => {
+  const { integration, message, hero, documents } = setup();
+  documents.set(hero.uuid, hero);
+  const legacy = legacyMessage(message, [{ uuid: hero.uuid, ac: 15 }]);
+  for (let hit = 1; hit <= 20; hit++) {
+    legacy.uuid = `ChatMessage.legacy${hit}`;
+    await integration.onAttackMessage(legacy);
+    if (hit === 4) assert.deepEqual(stateOf(hero)?.reached, ["warning"]);
+  }
+  assert.equal(stateOf(hero)?.value, 0);
+  assert.equal(stateOf(hero)?.cycles, 1);
+  assert.deepEqual(stateOf(hero)?.reached, ["warning", "paralysis"]);
+  assert.deepEqual(hero.effects[0]?.statuses, ["paralyzed"]);
+});
+
+test("legacy flags cannot bypass a modern empty evaluatedTargets list or author permissions", async () => {
+  const { integration, message, hero, documents } = setup();
+  documents.set(hero.uuid, hero);
+  const legacy = legacyMessage(message, [{ uuid: hero.uuid, ac: 15 }]);
+  legacy.type = "attack";
+  legacy.system.evaluatedTargets = [];
+  await integration.onAttackMessage(legacy);
+  assert.equal(stateOf(hero), undefined);
+  delete legacy.system.evaluatedTargets;
+  legacy.author = { id: "player", isGM: false };
+  hero.ownership.player = 0;
+  await integration.onAttackMessage(legacy);
+  assert.equal(stateOf(hero), undefined);
+});
