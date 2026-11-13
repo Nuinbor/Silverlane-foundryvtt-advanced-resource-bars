@@ -5,3 +5,4 @@
 - Pre-flight: Task 1 transitions feed Task 2; Task 2 applyRules feeds Task 3; Task 4 exposes these interfaces. No conflicts.
 - Decision: use native D&D5e 6.1 hit messages as well as applied-damage hooks; neither requires Midi-QOL.
 - Task 1: complete, commit 2a5acc5; 9/9 domain tests pass after observed missing-module RED.
+- Task 2: complete, commit d251b53; 20/20 domain and service tests pass, including replay, synthetic Actor and permission cases.
