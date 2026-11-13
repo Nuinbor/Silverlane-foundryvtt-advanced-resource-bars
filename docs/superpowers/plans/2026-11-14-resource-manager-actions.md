@@ -14,7 +14,7 @@
 - [x] Service: persist prepared actions, retry without reroll, recurring terminal actions even with an existing status, safe effect removal, tests for failed prepare/write/cleanup.
 - [x] UI: GM matrix, launchers, actor scopes, manual +/- amount, managed effect chips and retry; resource sidebar, Description/Effect editor and necrotic preset; tests for actual forms and actions.
 - [x] Verify: full suite/check/build and static browser preview; independent final review; preserve compatibility and document limitations.
-- [ ] Release 0.3.0: push and publish through existing workflow; verify public manifest and archive contents.
+- [x] Release 0.3.0: push and publish through existing workflow; verify public manifest and archive contents.
 
 ## Ledger
 
@@ -25,3 +25,4 @@
 - Added separate Description/Effect fields, a necrotic command preset, explicit auto-damage checkbox, native formula validation, and resource sidebar. Old definitions gain empty commands and retain their statuses, values and history.
 - Verification before final review: 85/85 tests, npm run check, npm run build, git diff --check passed. Static Chromium preview visually inspected at 1480px. Additional scene/selection regression passed 9/9 targeted main tests. Licensed Foundry runtime testing unavailable; README includes the required world smoke checks and exact threshold setup.
 - Independent final review: no outstanding Critical/Important/Minor findings; 54 focused tests passed, native D&D5e 5.3.3 damage interfaces verified against source. Final full verification: 86/86 tests plus check/build/diff whitespace passed. Version 0.3.0; release uses the previously authorized main/tag workflow.
+- Published main commit a58f648 and annotated tag v0.3.0. Release workflow 43523109192 completed successfully. Public latest manifest and referenced ZIP both returned HTTP 200; version 0.3.0, Foundry 13.347–14 and D&D5e minimum 5.3.3 verified. All 23 archive entries matched the tagged Git contents byte for byte. Full suite on the fast-forwarded main also passed 86/86.
