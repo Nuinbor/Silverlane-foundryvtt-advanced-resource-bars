@@ -56,6 +56,25 @@ test("treatment clears history and only this resource's managed effects", async 
   assert.equal(actor.effects.length, 2);
 });
 
+test("each full resource cycle reapplies removed paralysis while preserving threshold history", async () => {
+  const { actor, service } = setup();
+  await service.set(actor, "nerve-damage", 100);
+  const firstEffectId = actor.effects[0].id;
+  await actor.deleteEmbeddedDocuments("ActiveEffect", [firstEffectId]);
+  await service.set(actor, "nerve-damage", 95);
+  await service.applyRules(actor, [{ resourceId: "nerve-damage", amount: 5 }], { eventId: "second-hit" });
+  assert.equal(stateOf(actor).value, 0);
+  assert.equal(stateOf(actor).cycles, 2);
+  assert.deepEqual(stateOf(actor).reached, ["warning", "paralysis"]);
+  assert.equal(actor.effects.length, 1);
+  assert.notEqual(actor.effects[0].id, firstEffectId);
+  assert.deepEqual(actor.effects[0].statuses, ["paralyzed"]);
+
+  await service.set(actor, "nerve-damage", 100);
+  assert.equal(stateOf(actor).cycles, 3);
+  assert.equal(actor.effects.length, 1, "an existing paralysis must not stack");
+});
+
 test("current-value custom effects are removed below threshold", async () => {
   const { actor, service, definitions } = setup();
   Object.assign(definitions[0].thresholds[0], { mode: "current", changes: [{ key: "system.attributes.ac.bonus", mode: 2, value: "-2" }] });

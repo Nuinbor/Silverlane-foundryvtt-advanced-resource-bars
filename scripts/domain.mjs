@@ -97,7 +97,7 @@ export function transition(definition, previous = {}, target) {
     const touched = requested >= threshold.at;
     const terminal = rollover && threshold.at === definition.max;
     if (threshold.mode === "sticky") {
-      if (touched && !reached.has(threshold.id)) activate.push(threshold);
+      if (terminal || (touched && !reached.has(threshold.id))) activate.push(threshold);
     } else {
       if ((value >= threshold.at && before < threshold.at) || terminal) activate.push(threshold);
       if (before >= threshold.at && value < threshold.at && !terminal) deactivate.push(threshold);

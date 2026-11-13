@@ -14,19 +14,17 @@
 
 ## Установка
 
-До публикации первого Release используйте ручную установку или артефакт GitHub Actions:
-
-1. Скачайте `silverlane-resource-bars.zip` из артефактов последней успешной проверки во вкладке Actions (нужен вход в GitHub) либо соберите его локально командами ниже.
-2. Распакуйте содержимое установочного ZIP в `Data/modules/silverlane-resource-bars/`. Файл `module.json` должен лежать непосредственно в этой папке. Артефакт Actions содержит установочный ZIP внутри внешнего архива артефакта.
-3. Перезапустите Foundry и включите модуль в мире D&D5e.
-
-После публикации Release модуль можно установить по Manifest URL:
+В Foundry откройте **Add-on Modules → Install Module**, вставьте в поле **Manifest URL** ссылку и нажмите **Install**:
 
 ```text
 https://github.com/Nuinbor/Silverlane-foundryvtt-advanced-resource-bars/releases/latest/download/module.json
 ```
 
-Репозиторий сам по себе не создаёт Release. Workflow `release.yml` собирает и публикует его при пуше тега `v0.1.0` (версия тега должна совпадать с `module.json` и `package.json`).
+Затем включите **Silverlane Advanced Resource Bars** в управлении модулями вашего мира D&D5e. В поле Manifest URL нужна именно ссылка выше, а не адрес главной страницы репозитория.
+
+Для ручной установки скачайте `silverlane-resource-bars.zip` из [последнего Release](https://github.com/Nuinbor/Silverlane-foundryvtt-advanced-resource-bars/releases/latest) и распакуйте содержимое в `Data/modules/silverlane-resource-bars/`. Файл `module.json` должен лежать непосредственно в этой папке. Перезапустите Foundry и включите модуль.
+
+Workflow `release.yml` собирает и публикует релиз при пуше тега `v0.1.0` (версия тега должна совпадать с `module.json` и `package.json`).
 
 ## Быстрый старт
 
@@ -81,7 +79,7 @@ await game.modules.get("silverlane-resource-bars").api.open();
 ## Правила порогов
 
 - Порог включается на точном значении и при перескоке через него. Все достигнутые пороги записываются в историю.
-- **Постоянный**: накладывается один раз до лечения; снижение шкалы не снимает эффект. Ручное снятие или истечение длительности не стирает историю и не накладывает его заново. Для нового срабатывания используйте лечение.
+- **Постоянный**: накладывается один раз до лечения; снижение шкалы не снимает эффект. Ручное снятие или истечение длительности не стирает историю и не накладывает его заново. Для нового срабатывания используйте лечение. Исключение — максимальный порог со сбросом: он срабатывает при каждом заполнении шкалы, возвращая снятый паралич. Уже существующий эффект этого порога не дублируется.
 - **По текущему значению**: снимается при падении ниже порога и может включиться при следующем пересечении. На сбросе максимальный порог — исключение: его эффект сохраняется, чтобы паралич не исчезал сразу после наложения.
 - При 95 → 105 максимум даёт **ровно 0**, не 5. Одно изменение вызывает не больше одного сброса.
 - **В ноль**: сбрасывает число, сохраняет историю и постоянные эффекты. Эффекты текущего значения ниже порога снимаются.
@@ -144,6 +142,6 @@ npm run build
 
 ## English summary
 
-Standalone Foundry v14.367+ / D&D5e 6.1+ resource tracker. Create a Script macro containing `await game.modules.get("silverlane-resource-bars").api.open();`, or press Alt+R. GMs configure world resources through module settings and attack rules through the Item sheet header button. The default nerve damage bar warns at 20 and applies Paralyzed/reset-to-zero at 100. Gold ticks record previous threshold crossings. “Zero” preserves sticky effects/history; “Treat” removes only this resource's effects and history. Native hits require targeted tokens. Only GM-authored attacks can automate foreign-Actor writes; player-authored attacks remain limited to that player's owned Actors. Midi-QOL is optional. Install a release ZIP into `Data/modules/silverlane-resource-bars/`; before the first release use the Actions artifact or `npm ci && npm run build`.
+Standalone Foundry v14.367+ / D&D5e 6.1+ resource tracker. Create a Script macro containing `await game.modules.get("silverlane-resource-bars").api.open();`, or press Alt+R. GMs configure world resources through module settings and attack rules through the Item sheet header button. The default nerve damage bar warns at 20 and applies Paralyzed/reset-to-zero at 100 on every full cycle without stacking an existing managed effect. Gold ticks record previous threshold crossings. “Zero” preserves sticky effects/history; “Treat” removes only this resource's effects and history. Native hits require targeted tokens. Only GM-authored attacks can automate foreign-Actor writes; player-authored attacks remain limited to that player's owned Actors. Midi-QOL is optional. Install using the Manifest URL above in Foundry's Install Module dialog, or extract the release ZIP into `Data/modules/silverlane-resource-bars/`.
 
 MIT license.
