@@ -3,10 +3,13 @@ import { ResourceService } from "./service.mjs";
 import { CombatIntegration } from "./combat.mjs";
 import { ResourceTracker, ResourceConfig, ItemRulesConfig, uiAction } from "./ui.mjs";
 import { drawTokenBars } from "./token-bars.mjs";
+import { ResourceManager, resourceManagers } from "./manager.mjs";
+import { markResourceDamage } from "./actions.mjs";
 
 let service;
 let combat;
 let tracker;
+let manager;
 
 const tr = key => game.i18n.localize(`SRB.${key}`);
 const definitions = () => validateDefinitions(game.settings.get(MODULE_ID, "definitions"));
@@ -27,6 +30,7 @@ function refreshBars(token) {
 
 function refreshAll() {
   if (tracker?.rendered) tracker.render({ force: true });
+  for (const app of resourceManagers) if (app.rendered) app.render({ force: true });
   refreshBars();
 }
 
@@ -35,15 +39,21 @@ async function asActor(input) {
   return document?.documentName === "Actor" ? document : document?.actor ?? document?.document?.actor;
 }
 
-function configure() {
+function configure(options = {}) {
   if (!game.user.isGM) throw new Error(tr("GMOnly"));
-  return new ResourceConfig().render({ force: true });
+  return new ResourceConfig(options).render({ force: true });
+}
+
+function openManager() {
+  if (!game.user.isGM) throw new Error(tr("GMOnly"));
+  if (!manager || !manager.rendered) manager = new ResourceManager({ service, configure });
+  return manager.render({ force: true });
 }
 
 async function open(input) {
   const actors = input == null ? selectedActors() : await Promise.all((Array.isArray(input) ? input : [input]).map(asActor));
   for (const actor of actors) service.get(actor); // Validate ownership before rendering anything.
-  if (!tracker || !tracker.rendered) tracker = new ResourceTracker({ actors, service, resolveActors: selectedActors, configure });
+  if (!tracker || !tracker.rendered) tracker = new ResourceTracker({ actors, service, resolveActors: selectedActors, configure, manager: openManager });
   else tracker.actors = actors;
   return tracker.render({ force: true });
 }
@@ -82,6 +92,9 @@ Hooks.once("init", () => {
   game.settings.registerMenu(MODULE_ID, "resourceConfig", {
     name: "SRB.Configure", label: "SRB.Configure", hint: "SRB.ConfigHint", icon: "fa-solid fa-sliders", type: ResourceConfig, restricted: true
   });
+  game.settings.registerMenu(MODULE_ID, "manager", {
+    name: "SRB.Manager", label: "SRB.Manager", hint: "SRB.ManagerHint", icon: "fa-solid fa-table-cells", type: ResourceManager, restricted: true
+  });
   game.settings.register(MODULE_ID, "automation", {
     name: "SRB.Automation", hint: "SRB.AutomationHint", scope: "world", config: true, type: Boolean, default: true
   });
@@ -95,10 +108,11 @@ Hooks.once("init", () => {
   });
   combat = new CombatIntegration({ service, game });
   game.modules.get(MODULE_ID).api = Object.freeze({
-    open, configure, configureItem,
+    open, openManager, configure, configureItem,
     get: actor => service.get(typeof actor === "string" ? fromUuidSync(actor) : actor),
     set: (...args) => service.set(...args), adjust: (...args) => service.adjust(...args),
     reset: (...args) => service.reset(...args), setEnabled: (...args) => service.setEnabled(...args),
+    removeEffect: (...args) => service.removeEffect(...args), retryActions: (...args) => service.retryActions(...args),
     applyItem: (item, targets = game.user.targets, options) => combat.applyItem(item, targets, options),
     applyOnHit: (item, targets = game.user.targets, options = {}) => combat.applyItem(item, targets, { ...options, trigger: "hit" }),
     definitions: () => structuredClone(definitions())
@@ -117,13 +131,29 @@ Hooks.once("ready", () => {
 Hooks.on("createChatMessage", message => { if (automation()) return uiAction(() => combat.onAttackMessage(message)); });
 Hooks.on("updateChatMessage", message => { if (automation()) return uiAction(() => combat.onAttackMessage(message)); });
 Hooks.on("dnd5e.applyDamage", (actor, amount, options) => { if (automation()) return uiAction(() => combat.onDamage(actor, amount, options)); });
+Hooks.on("dnd5e.preApplyDamage", markResourceDamage);
 Hooks.on("midi-qol.RollComplete", workflow => { if (automation()) return uiAction(() => combat.onMidiComplete(workflow)); });
 Hooks.on("renderApplicationV2", addSheetAction);
 Hooks.on("updateActor", refreshAll);
 Hooks.on("updateToken", refreshAll);
 Hooks.on("createActiveEffect", refreshAll);
 Hooks.on("deleteActiveEffect", refreshAll);
-Hooks.on("canvasReady", () => refreshBars());
+Hooks.on("updateActiveEffect", refreshAll);
+Hooks.on("createActor", refreshAll);
+Hooks.on("deleteActor", refreshAll);
+Hooks.on("canvasReady", refreshAll);
+Hooks.on("createToken", refreshAll);
+Hooks.on("deleteToken", refreshAll);
 Hooks.on("refreshToken", token => refreshBars(token));
-Hooks.on("controlToken", token => refreshBars(token));
+Hooks.on("controlToken", refreshAll);
 Hooks.on("hoverToken", token => refreshBars(token));
+
+Hooks.on("getSceneControlButtons", controls => {
+  if (!game.user.isGM) return;
+  const tokens = Array.isArray(controls) ? controls.find(c => c.name === "token") : controls.tokens;
+  if (!tokens?.tools) return;
+  const tool = { name: MODULE_ID, title: tr("Manager"), icon: "fa-solid fa-bars-progress", button: true,
+    onChange: () => uiAction(openManager), onClick: () => uiAction(openManager) };
+  if (Array.isArray(tokens.tools)) tokens.tools.push(tool);
+  else tokens.tools[MODULE_ID] = tool;
+});

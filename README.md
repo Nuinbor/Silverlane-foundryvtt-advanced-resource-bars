@@ -8,6 +8,9 @@
 
 - Любое количество шкал до 40: название, максимум, цвет, описание и пороги.
 - Компактное окно для одного или нескольких персонажей: ввод числа, ±1/±5, подсказки на отметках и история достигнутых порогов.
+- Менеджер мастера: таблица «персонажи × шкалы», поиск, персонажи мира / токены сцены / выбранные токены, настраиваемый шаг ±, добавление и редактирование шкал прямо из панели.
+- Отдельные поля «Описание» и «Эффект / команда броска» у порога. Броски в чат и типизированный урон D&D5e с автоматическим применением или только карточкой чата.
+- Список наложенных модулем эффектов у каждой шкалы; отдельный эффект можно снять крестиком, сохранив историю порогов.
 - Эффекты порогов: системный статус, произвольные изменения `system.*` через Active Effect, длительность, постоянный или зависящий от текущего значения дебафф.
 - Сброс шкалы на максимуме, сохранение истории и отдельных эффектов после обнуления.
 - Дополнительные полосы над своими токенами: до шести, без замены штатных HP. По умолчанию только у выбранных токенов.
@@ -26,7 +29,7 @@ https://github.com/Nuinbor/Silverlane-foundryvtt-advanced-resource-bars/releases
 
 Для ручной установки скачайте `silverlane-resource-bars.zip` из [последнего Release](https://github.com/Nuinbor/Silverlane-foundryvtt-advanced-resource-bars/releases/latest) и распакуйте содержимое в `Data/modules/silverlane-resource-bars/`. Файл `module.json` должен лежать непосредственно в этой папке. Перезапустите Foundry и включите модуль.
 
-Workflow `release.yml` собирает и публикует релиз при пуше тега `v0.2.0` (версия тега должна совпадать с `module.json` и `package.json`).
+Workflow `release.yml` собирает и публикует релиз при пуше тега `v0.3.0` (версия тега должна совпадать с `module.json` и `package.json`).
 
 ## Быстрый старт
 
@@ -39,6 +42,32 @@ await game.modules.get("silverlane-resource-bars").api.open();
 Выберите свой токен и запустите макрос. Также доступны **Alt+R** (переназначается в управлении) и кнопка с полосками в заголовке листа Actor. Без выбранного токена используется назначенный пользователю персонаж. Кнопка обновления в трекере переключает его на текущий выбор.
 
 Настройка шкал: **Настройки игры → Настройки модулей → Silverlane Advanced Resource Bars → Настройка шкал ресурсов**, либо кнопка настроек в трекере (только мастер).
+
+### Менеджер шкал и эффектов (с версии 0.3.0)
+
+Мастер открывает общую таблицу кнопкой с полосками в инструментах токенов слева на сцене, кнопкой таблицы в компактном трекере или через **Настройки модулей → Silverlane Advanced Resource Bars → Менеджер шкал и эффектов**. Можно создать Script-макрос:
+
+```js
+await game.modules.get("silverlane-resource-bars").api.openManager();
+```
+
+Выберите персонажей мира, токены сцены или выбранные токены. В каждой ячейке есть ввод числа и кнопки ± с шагом из верхней панели. Галочка включает шкалу для существа. Кнопка **«Добавить шкалу»** создаёт новую шкалу, карандаш в заголовке столбца открывает её настройки. В редакторе шкалы выбираются в списке слева; изменения сохраняются общей кнопкой внизу.
+
+Под полосой показаны эффекты этой шкалы; крестик снимает конкретный эффект. Достигнутый ранее порог остаётся в истории даже после снятия эффекта. **«В ноль»** обнуляет значение, а **«Лечение»** очищает также историю и эффекты шкалы. Отключённые и подавленные эффекты помечены отдельно.
+
+### На 100: 6d10 некротического урона
+
+1. Откройте настройки нужной шкалы и включите **«Сбрасывать в ноль на максимуме»**, максимум **100**.
+2. У порога со значением **100** заполните **«Описание»** обычным текстом, например «При полном поражении получает 6d10 некротического урона».
+3. В **«Эффект / команда броска»** вставьте `[[/damage 6d10 type=necrotic]]` или нажмите **«6d10 некротикой»**.
+4. Включите **«Автоматически применить урон»**, чтобы сразу изменить HP через штатный `Actor.applyDamage` D&D5e с учётом сопротивлений, иммунитетов и временных HP. Выключите галочку, если нужна только карточка броска в чате для ручного применения.
+5. Если паралич больше не нужен, выберите статус **«Нет»**. Команда урона и статус задаются независимо: оставленный **Paralyzed** будет накладываться дополнительно.
+
+При 95 → 100 появится карточка броска, применится урон (если включён), шкала станет 0. При следующем полном заполнении урон сработает снова; уже наложенный статус не дублируется. Старые шкалы после обновления сохраняют настройки: команда урона добавляется явно в редакторе.
+
+Поддерживаемые примеры: `[[/damage 6d10 type=necrotic]]`, `/damage 6d10 necrotic`, `6d10[necrotic]`, `/r 6д10[necrotic]`, `/roll 1d20 + 3`. Тип урона указывается английским системным идентификатором. Одна команда на порог; произвольный JavaScript, макросы и полный набор чат-команд не исполняются. EasyTraps не требуется.
+
+Если отправка карточки или сохранение урона прервётся, у существа появится кнопка повтора незавершённых действий. Повтор использует уже сохранённый бросок. Отметка применения сохраняется вместе с HP, чтобы сбой последующей очистки очереди не нанёс урон повторно. При автоуроне повторно применять урон вручную с той же карточки не нужно.
 
 ### Готовый пример: «Поражение нервов»
 
@@ -99,7 +128,10 @@ const bars = game.modules.get("silverlane-resource-bars").api;
 await bars.open();                            // Выбранные свои токены / свой персонаж
 await bars.open(token.actor);                 // Конкретный Actor или UUID
 await bars.open([actor1, actor2]);             // Несколько Actor
+bars.openManager();                          // Общая таблица, только GM
 bars.configure();                            // Редактор определений, только GM
+bars.configure({ createNew: true });          // Сразу создать новую шкалу
+bars.configure({ selectedId: "nerve-damage" }); // Открыть конкретную шкалу
 await bars.configureItem(item);               // Редактор правил предмета, только GM
 
 bars.get(token.actor);                        // [{ definition, state }]
@@ -109,6 +141,8 @@ await bars.set(token.document.uuid, "nerve-damage", 70);
 await bars.reset(token.actor, "nerve-damage");
 await bars.reset(token.actor, "nerve-damage", { clearHistory: true });
 await bars.setEnabled(token.actor, "nerve-damage", false);
+await bars.removeEffect(token.actor, "EFFECT_ID"); // Снять только эффект модуля
+await bars.retryActions(token.actor);         // Повторить сохранённые действия без переброса
 
 // Явное подтверждение попадания для собственного workflow.
 // Не вызывайте дополнительно к уже работающей автоматизации того же броска.
@@ -136,15 +170,17 @@ npm run check
 npm run build
 ```
 
-Для статического просмотра трёх окон в браузере: `node tools/preview.mjs`, затем откройте `dist/preview.html`. Это визуальный стенд, не эмулятор Foundry.
+Для статического просмотра окон в браузере: `node tools/preview.mjs`, затем откройте `dist/preview.html`. Это визуальный стенд, не эмулятор Foundry.
 
 Установочный архив: `dist/silverlane-resource-bars.zip`; манифест для Release: `dist/module.json`. В архив не входят зависимости разработки, тесты и `.git`. Для запуска в Foundry сборка и Node.js не требуются.
 
-Автотесты покрывают переходы порогов, эффекты, права, синтетических Actor, защиту от повторных событий, адаптеры D&D5e/Midi, шаблоны, формы, приватность полос и установочный ZIP. Они используют узкие имитации API Foundry, а не лицензированный сервер. Перед игрой проверьте в тестовом мире: +5 при попадании/отсутствие прибавки при промахе, 95 → 100 → Paralyzed + 0, лечение и разные значения двух несвязанных токенов.
+Автотесты покрывают переходы порогов, эффекты, права, синтетических Actor, защиту от повторных событий, адаптеры D&D5e/Midi, шаблоны, формы, менеджер, команды урона и повтор действий, приватность полос и установочный ZIP. Они используют узкие имитации API Foundry, а не лицензированный сервер. Живой запуск в Foundry здесь не выполнялся. Перед игрой проверьте в тестовом мире: +5 при попадании/отсутствие прибавки при промахе, 95 → 100 → Paralyzed + 0, настроенный бросок 6d10 некротикой в обоих режимах, лечение и разные значения двух несвязанных токенов.
 
 Изменения сериализуются для одного Actor внутри клиента. Одновременные ручные записи в одного Actor с разных клиентов не являются распределённой транзакцией; не редактируйте одну шкалу одновременно с двух устройств.
 
 ## English summary
+
+Version 0.3.0 adds a GM actor/resource matrix (`api.openManager()`, token scene controls, module settings), inline edits, configurable +/- steps, resource creation, and managed-effect removal. Thresholds now have separate Description and Effect fields. Use `[[/damage 6d10 type=necrotic]]` at 100 with auto damage enabled to post a native damage roll and apply it through D&D5e; disable auto damage for chat only. The status is independent, so clear Paralyzed if you want damage alone. Failed actions retain their evaluated roll for retry. Existing definitions are preserved. Runtime smoke testing in a licensed Foundry world remains necessary.
 
 Standalone Foundry v13.347+ / v14 resource tracker supporting D&D5e 5.3.3+, including Foundry 14 with D&D5e 5.3.3. Create a Script macro containing `await game.modules.get("silverlane-resource-bars").api.open();`, or press Alt+R. GMs configure world resources through module settings and attack rules through the Item sheet header button. The default nerve damage bar warns at 20 and applies Paralyzed/reset-to-zero at 100 on every full cycle without stacking an existing managed effect. Gold ticks record previous threshold crossings. “Zero” preserves sticky effects/history; “Treat” removes only this resource's effects and history. Native hits require targeted tokens. Only GM-authored attacks can automate foreign-Actor writes; player-authored attacks remain limited to that player's owned Actors. Midi-QOL is optional. Install using the Manifest URL above in Foundry's Install Module dialog, or extract the release ZIP into `Data/modules/silverlane-resource-bars/`.
 

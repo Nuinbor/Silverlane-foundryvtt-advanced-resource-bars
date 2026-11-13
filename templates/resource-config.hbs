@@ -1,10 +1,12 @@
-<div class="srb-panel">
-  <div class="srb-toolbar">
-    <select name="selectedResource" aria-label="{{localize 'SRB.Resources'}}">{{#each resources}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select>
+<div class="srb-config-layout">
+  <aside class="srb-resource-list">
+    <div class="srb-eyebrow">{{localize "SRB.Resources"}}</div>
+    {{#each resources}}<button type="button" class="srb-resource-choice {{#if selected}}selected{{/if}}" data-action="selectResource" data-resource-id="{{id}}"><span style="--srb-resource: {{color}}" class="srb-color-dot"></span><span>{{name}}<small>{{max}} · {{thresholds.length}} {{localize "SRB.Thresholds"}}</small></span></button>{{/each}}
     <button type="button" data-action="addResource"><i class="fa-solid fa-plus"></i> {{localize "SRB.AddResource"}}</button>
-    {{#if selected}}<button type="button" data-action="removeResource" title="{{localize 'SRB.Delete'}}"><i class="fa-solid fa-trash"></i></button>{{/if}}
-  </div>
+  </aside>
+  <div class="srb-panel srb-resource-editor">
   {{#if selected}}
+  <div class="srb-section-heading"><h2>{{selected.name}}</h2><button type="button" data-action="removeResource" title="{{localize 'SRB.Delete'}}"><i class="fa-solid fa-trash"></i></button></div>
   <div class="srb-grid">
     <label>{{localize "SRB.Name"}}<input name="name" value="{{selected.name}}" maxlength="120" required></label>
     <label>ID<input value="{{selected.id}}" readonly class="srb-id"></label>
@@ -25,6 +27,9 @@
         <button type="button" data-action="removeThreshold" data-threshold-id="{{id}}" title="{{localize 'SRB.Delete'}}"><i class="fa-solid fa-trash"></i></button>
       </div>
       <label>{{localize "SRB.Description"}}<textarea name="thresholdDescription" rows="2">{{description}}</textarea></label>
+      <label>{{localize "SRB.Effect"}}<input name="thresholdEffect" value="{{effect}}" class="srb-code" placeholder="[[/damage 6d10 type=necrotic]]" maxlength="500"></label>
+      <div class="srb-preset-row"><button type="button" data-action="presetNecrotic"><i class="fa-solid fa-dice"></i> {{localize "SRB.NecroticPreset"}}</button><label class="srb-inline-check"><input type="checkbox" name="autoDamage" {{#if autoDamage}}checked{{/if}}> {{localize "SRB.AutoDamage"}}</label></div>
+      <p class="srb-hint">{{localize "SRB.EffectHint"}}</p>
       <div class="srb-grid">
         <label>{{localize "SRB.Behavior"}}<select name="mode"><option value="sticky" {{#if sticky}}selected{{/if}}>{{localize "SRB.Sticky"}}</option><option value="current" {{#if current}}selected{{/if}}>{{localize "SRB.Current"}}</option></select></label>
         <label>{{localize "SRB.Status"}}<select name="status"><option value="">{{localize "SRB.None"}}</option>{{#each statuses}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
@@ -36,4 +41,5 @@
   {{else}}<p class="srb-empty">{{localize "SRB.NoResources"}}</p>{{/if}}
   <p class="srb-hint">{{localize "SRB.ConfigHint"}}</p>
   <footer><button type="submit" class="srb-primary"><i class="fa-solid fa-floppy-disk"></i> {{localize "SRB.Save"}}</button></footer>
+  </div>
 </div>

@@ -240,3 +240,67 @@ test("refused Actor updates compensate effects just like thrown errors", async (
   await assert.rejects(service.set(actor, "nerve-damage", 100), /update.*refused/i);
   assert.equal(actor.effects.length, 0);
 });
+
+function actionSetup() {
+  const actor = actorFixture();
+  const definitions = defaultDefinitions();
+  definitions[0].thresholds[1].effect = "[[/damage 6d10 type=necrotic]]";
+  let preparations = 0;
+  const executed = [];
+  const actions = {
+    async prepare(actor, definition, threshold) {
+      return { id: `roll-${++preparations}`, actorUuid: actor.uuid, resourceId: definition.id, thresholdId: threshold.id, total: 36 };
+    },
+    async execute(actor, record) { executed.push(record); }
+  };
+  const service = new ResourceService({ definitions: () => definitions, statusEffect: statusFixture, actions });
+  return { actor, definitions, service, actions, executed, preparations: () => preparations };
+}
+
+test("terminal dice actions recur even while the existing paralysis remains active", async () => {
+  const { actor, service, executed, preparations } = actionSetup();
+  await service.set(actor, "nerve-damage", 100);
+  await service.set(actor, "nerve-damage", 100);
+  assert.equal(actor.effects.length, 1);
+  assert.equal(executed.length, 2);
+  assert.equal(preparations(), 2);
+  assert.equal(stateOf(actor).cycles, 2);
+  assert.deepEqual(actor.getFlag(MODULE_ID, "pendingActions"), []);
+});
+
+test("failed chat execution retains the prepared roll for retry without another roll or threshold crossing", async () => {
+  const { actor, service, actions, preparations, executed } = actionSetup();
+  actions.execute = async () => { throw new Error("Chat unavailable"); };
+  await assert.rejects(service.set(actor, "nerve-damage", 100), /Chat unavailable/);
+  assert.equal(stateOf(actor).value, 0);
+  assert.equal(actor.getFlag(MODULE_ID, "pendingActions")[0].total, 36);
+  actions.execute = async (actor, record) => { executed.push(record); };
+  await service.retryActions(actor);
+  assert.equal(preparations(), 1);
+  assert.equal(executed[0].id, "roll-1");
+  assert.deepEqual(actor.getFlag(MODULE_ID, "pendingActions"), []);
+});
+
+test("failed roll preparation or Actor persistence cannot post a threshold roll", async () => {
+  const { actor, service, actions, executed } = actionSetup();
+  actions.prepare = async () => { throw new Error("Invalid formula"); };
+  await assert.rejects(service.set(actor, "nerve-damage", 100), /Invalid formula/);
+  assert.equal(stateOf(actor), undefined);
+  assert.equal(actor.effects.length, 0);
+  actions.prepare = async () => ({ id: "prepared" });
+  actor.update = async () => { throw new Error("Persistence failed"); };
+  await assert.rejects(service.set(actor, "nerve-damage", 100), /Persistence failed/);
+  assert.equal(executed.length, 0);
+  assert.equal(actor.effects.length, 0);
+});
+
+test("manual effect removal preserves threshold history and rejects unrelated effects", async () => {
+  const { actor, service } = setup();
+  actor.effects.push({ id: "unrelated", name: "Other spell" });
+  await service.set(actor, "nerve-damage", 100);
+  const id = actor.effects.find(e => e.id !== "unrelated").id;
+  await service.removeEffect(actor, id);
+  assert.deepEqual(actor.effects.map(e => e.id), ["unrelated"]);
+  assert.deepEqual(stateOf(actor).reached, ["warning", "paralysis"]);
+  await assert.rejects(service.removeEffect(actor, "unrelated"), /managed|resource/i);
+});

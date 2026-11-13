@@ -105,3 +105,37 @@ test("D&D5e 5.3.3 / Foundry 13 status arrays populate the same resource editor",
   form.innerHTML = Handlebars.compile(await readFile(new URL("../templates/resource-config.hbs", import.meta.url), "utf8"))(context);
   assert.equal(readDefinitionForm(form, "nerve-damage").thresholds[1].status, "paralyzed");
 });
+
+test("threshold editor keeps Description separate from the native Effect command and chat-only setting", async () => {
+  const definitions = defaultDefinitions();
+  definitions[0].thresholds[1].effect = "[[/damage 6d10 type=necrotic]]";
+  definitions[0].thresholds[1].autoDamage = false;
+  globalThis.game.settings.get = () => definitions;
+  const app = new ResourceConfig();
+  const context = await app._prepareContext();
+  const form = new Window().document.createElement("form");
+  form.innerHTML = Handlebars.compile(await readFile(new URL("../templates/resource-config.hbs", import.meta.url), "utf8"))(context);
+  const row = form.querySelector('[data-threshold-id="paralysis"]');
+  assert.equal(row.querySelector('[name="thresholdEffect"]').value, "[[/damage 6d10 type=necrotic]]");
+  row.querySelector('[name="thresholdDescription"]').value = "Отмирание тканей";
+  const threshold = readDefinitionForm(form, "nerve-damage").thresholds[1];
+  assert.equal(threshold.description, "Отмирание тканей");
+  assert.equal(threshold.effect, "[[/damage 6d10 type=necrotic]]");
+  assert.equal(threshold.autoDamage, false);
+});
+
+test("tracker distinguishes reached history from currently active managed effects", async () => {
+  const actor = actorFixture();
+  const definitions = defaultDefinitions();
+  definitions[0].thresholds[1].effect = "[[/damage 6d10 type=necrotic]]";
+  const service = new ResourceService({ definitions: defaultDefinitions, statusEffect: statusFixture });
+  await service.set(actor, "nerve-damage", 100);
+  actor.effects.push({ id: "foreign", name: "Other paralysis" });
+  const context = trackerContext([actor], service, key => key);
+  assert.equal(context.actors[0].resources[0].effects.length, 1);
+  assert.equal(context.actors[0].resources[0].thresholds[1].active, true);
+  await service.removeEffect(actor, actor.effects[0].id);
+  const after = trackerContext([actor], service, key => key);
+  assert.equal(after.actors[0].resources[0].thresholds[1].reached, true);
+  assert.equal(after.actors[0].resources[0].thresholds[1].active, false);
+});

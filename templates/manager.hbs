@@ -1,0 +1,23 @@
+<section class="srb-panel srb-manager-content">
+  <header class="srb-toolbar srb-manager-toolbar">
+    <label>{{localize "SRB.ActorScope"}}<select name="scope"><option value="characters" {{#if characters}}selected{{/if}}>{{localize "SRB.WorldCharacters"}}</option><option value="scene" {{#if scene}}selected{{/if}}>{{localize "SRB.SceneTokens"}}</option><option value="selected" {{#if selected}}selected{{/if}}>{{localize "SRB.SelectedTokens"}}</option></select></label>
+    <input name="search" type="search" value="{{search}}" placeholder="{{localize 'SRB.SearchActors'}}" aria-label="{{localize 'SRB.SearchActors'}}">
+    <label class="srb-delta-label">±<input name="delta" type="number" min="0" max="1000000" step="any" value="{{delta}}" aria-label="{{localize 'SRB.Delta'}}"></label>
+    <button type="button" data-action="addResource"><i class="fa-solid fa-plus"></i> {{localize "SRB.AddResource"}}</button>
+  </header>
+  <p class="srb-hint">{{localize "SRB.ManagerHint"}}</p>
+  <div class="srb-table-scroll">
+    <table class="srb-matrix">
+      <thead><tr><th scope="col">{{localize "SRB.Character"}}</th>{{#each definitions}}<th scope="col"><span class="srb-color-dot" style="--srb-resource: {{color}}"></span> {{name}}<button type="button" data-action="editResource" data-resource-id="{{id}}" title="{{localize 'SRB.Configure'}}"><i class="fa-solid fa-pen"></i></button><small>{{localize "SRB.Maximum"}}: {{max}}</small></th>{{/each}}</tr></thead>
+      <tbody>{{#each actors}}<tr>
+        <th scope="row"><button type="button" data-action="actorSheet" data-actor-uuid="{{uuid}}">{{name}}</button>{{#if pendingCount}}<button class="srb-pending" type="button" data-action="retryActions" data-actor-uuid="{{uuid}}"><i class="fa-solid fa-rotate"></i> {{localize "SRB.PendingActions"}}: {{pendingCount}}</button>{{/if}}</th>
+        {{#each resources}}<td class="srb-cell {{#unless enabled}}srb-disabled{{/unless}}" style="--srb-resource: {{color}}">
+          <div class="srb-cell-value"><label title="{{localize 'SRB.EnableResource'}}"><input type="checkbox" data-enable-resource data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}" {{#if enabled}}checked{{/if}}></label><button type="button" data-action="adjust" data-direction="-1" data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}" {{#unless enabled}}disabled{{/unless}}>−</button><input type="number" min="0" step="any" value="{{value}}" data-edit-value data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}" aria-label="{{name}}" {{#unless enabled}}disabled{{/unless}}><span>/ {{max}}</span><button type="button" data-action="adjust" data-direction="1" data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}" {{#unless enabled}}disabled{{/unless}}>+</button></div>
+          <div class="srb-scale"><div class="srb-fill" style="width: {{percent}}%"></div>{{#each thresholds}}<span class="srb-tick {{#if reached}}reached{{/if}}" style="left: {{percent}}%" tabindex="0" title="{{tooltip}}"><span>{{at}}</span></span>{{/each}}</div>
+          <div class="srb-effect-chips">{{#each effects}}<span class="srb-effect-chip {{#if disabled}}inactive{{/if}}">{{name}}<button type="button" data-action="removeEffect" data-actor-uuid="{{../actorUuid}}" data-effect-id="{{id}}" title="{{localize 'SRB.RemoveEffect'}}">×</button></span>{{else}}<small>{{localize "SRB.NoActiveEffects"}}</small>{{/each}}</div>
+          <div class="srb-cell-actions"><button type="button" data-action="reset" data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}" title="{{localize 'SRB.ResetHint'}}">{{localize "SRB.Reset"}}</button><button type="button" data-action="treat" data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}"><i class="fa-solid fa-kit-medical"></i> {{localize "SRB.Treat"}}</button><small>{{localize "SRB.Cycles"}}: {{cycles}}</small></div>
+        </td>{{/each}}
+      </tr>{{else}}<tr><td><p class="srb-empty">{{localize "SRB.NoManagerActors"}}</p></td></tr>{{/each}}</tbody>
+    </table>
+  </div>
+</section>

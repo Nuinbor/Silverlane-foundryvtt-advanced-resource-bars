@@ -1,3 +1,5 @@
+import { parseEffectCommand } from "./commands.mjs";
+
 export const MODULE_ID = "silverlane-resource-bars";
 
 const SAFE_ID = /^[a-z][a-z0-9_-]{0,63}$/;
@@ -58,11 +60,14 @@ export function validateDefinitions(input) {
       const mode = t.mode ?? "sticky";
       if (!["sticky", "current"].includes(mode)) throw new Error("Unknown threshold mode.");
       const normalizedChanges = normalizeEffectChanges(t.changes);
+      const effect = text(t.effect, "", 500).trim();
+      parseEffectCommand(effect);
       const duration = t.duration == null || t.duration === "" ? 0 : numeric(t.duration);
       if (!Number.isInteger(duration) || duration < 0 || duration > 31_536_000) throw new Error("Duration must be whole seconds, from 0 to 31536000.");
       return {
         id: thresholdId, at, name: text(t.name, thresholdId, 120), description: text(t.description),
-        mode, status: text(t.status, "", 100), changes: normalizedChanges, duration
+        mode, status: text(t.status, "", 100), changes: normalizedChanges, duration,
+        effect, autoDamage: t.autoDamage !== false
       };
     }).sort((a, b) => a.at - b.at);
     return {

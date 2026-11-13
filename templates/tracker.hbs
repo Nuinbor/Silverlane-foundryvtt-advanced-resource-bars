@@ -3,13 +3,14 @@
     <span class="srb-eyebrow">SILVERLANE · {{localize "SRB.Resources"}}</span>
     <div class="srb-actions">
       <button type="button" data-action="refresh" title="{{localize 'SRB.Refresh'}}"><i class="fa-solid fa-rotate"></i></button>
-      {{#if isGM}}<button type="button" data-action="configure" title="{{localize 'SRB.Configure'}}"><i class="fa-solid fa-sliders"></i></button>{{/if}}
+      {{#if isGM}}<button type="button" data-action="manager" title="{{localize 'SRB.Manager'}}"><i class="fa-solid fa-table-cells"></i></button><button type="button" data-action="configure" title="{{localize 'SRB.Configure'}}"><i class="fa-solid fa-sliders"></i></button>{{/if}}
     </div>
   </div>
   {{#unless hasActors}}<p class="srb-empty">{{localize "SRB.NoActor"}}</p>{{/unless}}
   {{#each actors}}
     <section class="srb-actor">
       <h2>{{name}}</h2>
+      {{#if pendingCount}}<button class="srb-pending" type="button" data-action="retryActions" data-actor-uuid="{{uuid}}"><i class="fa-solid fa-rotate"></i> {{localize "SRB.PendingActions"}}: {{pendingCount}}</button>{{/if}}
       {{#each resources}}
         <article class="srb-resource {{#unless enabled}}srb-disabled{{/unless}}" style="--srb-resource: {{color}}">
           <header>
@@ -32,8 +33,9 @@
               <button type="button" data-action="treat" data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}" title="{{localize 'SRB.TreatConfirm'}}"><i class="fa-solid fa-kit-medical"></i> {{localize "SRB.Treat"}}</button>
             </div>
           </div>
+          {{#if effects}}<div class="srb-effect-chips">{{#each effects}}<span class="srb-effect-chip {{#if disabled}}inactive{{/if}}">{{name}}<button type="button" data-action="removeEffect" data-actor-uuid="{{../actorUuid}}" data-effect-id="{{id}}" title="{{localize 'SRB.RemoveEffect'}}">×</button></span>{{/each}}</div>{{/if}}
           <details class="srb-history"><summary>{{localize "SRB.Thresholds"}} · {{localize "SRB.Cycles"}}: {{cycles}}</summary>
-            <ul>{{#each thresholds}}<li class="{{#if reached}}reached{{/if}}"><span>{{#if reached}}●{{else}}○{{/if}} {{at}} — {{name}}</span><small>{{description}}</small></li>{{/each}}</ul>
+            <ul>{{#each thresholds}}<li class="{{#if reached}}reached{{/if}}"><span>{{#if reached}}●{{else}}○{{/if}} {{at}} — {{name}}{{#if active}} · {{localize "SRB.Active"}}{{/if}}</span><small>{{localize "SRB.Description"}}: {{description}}</small><small>{{localize "SRB.Effect"}}: {{effectSummary}}</small></li>{{/each}}</ul>
           </details>
         </article>
       {{else}}<p class="srb-empty">{{localize "SRB.NoResources"}}</p>{{/each}}

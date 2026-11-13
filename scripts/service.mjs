@@ -1,15 +1,17 @@
 import { MODULE_ID, numeric, transition, validateDefinitions } from "./domain.mjs";
 import { buildEffect, managedEffects } from "./effects.mjs";
+import { ThresholdActions } from "./actions.mjs";
 
 /** All writes funnel through a per-Actor queue. No socket handler can write arbitrary documents. */
 export class ResourceService {
   #queues = new Map();
 
-  constructor({ definitions, resolve = uuid => globalThis.fromUuid(uuid), statusEffect, worldTime = () => globalThis.game?.time?.worldTime ?? 0 }) {
+  constructor({ definitions, resolve = uuid => globalThis.fromUuid(uuid), statusEffect, worldTime = () => globalThis.game?.time?.worldTime ?? 0, actions = new ThresholdActions() }) {
     this.definitions = definitions;
     this.resolve = resolve;
     this.statusEffect = statusEffect;
     this.worldTime = worldTime;
+    this.actions = actions;
   }
 
   get(actor) {
@@ -54,6 +56,29 @@ export class ResourceService {
       await this.#commit(document, { [`flags.${MODULE_ID}.resources`]: states });
       return states[resourceId];
     });
+  }
+
+  async removeEffect(actor, effectId) {
+    return this.#mutate(actor, async document => {
+      const effect = Array.from(document.effects).find(e => e.id === effectId);
+      if (!effect?.flags?.[MODULE_ID]?.resourceId) throw new Error("Only managed resource effects can be removed here.");
+      await document.deleteEmbeddedDocuments("ActiveEffect", [effectId]);
+      if (Array.from(document.effects).some(e => e.id === effectId)) throw new Error("Effect removal was refused.");
+    });
+  }
+
+  async retryActions(actor) {
+    return this.#mutate(actor, document => this.#runActions(document));
+  }
+
+  async #runActions(actor, ids) {
+    const records = structuredClone(actor.getFlag(MODULE_ID, "pendingActions") ?? []);
+    for (const record of records) {
+      if (ids && !ids.has(record.id)) continue;
+      await this.actions.execute(actor, record);
+      const remaining = (actor.getFlag(MODULE_ID, "pendingActions") ?? []).filter(a => a.id !== record.id);
+      if (!await actor.update({ [`flags.${MODULE_ID}.pendingActions`]: remaining })) throw new Error("Could not acknowledge the completed resource action. Retry it from the manager.");
+    }
   }
 
   #definitions() { return validateDefinitions(this.definitions()); }
@@ -116,20 +141,28 @@ export class ResourceService {
     }
     // Prepare all status data before changing any documents; invalid statuses cannot consume history.
     const additions = [];
+    const actions = [];
     const deletions = new Set();
     for (const { definition, activate, deactivate } of changes) {
       for (const threshold of deactivate) {
         for (const effect of managedEffects(actor, definition.id, threshold.id)) deletions.add(effect.id);
       }
       for (const threshold of activate) {
+        if (threshold.effect) actions.push(await this.actions.prepare(actor, definition, threshold));
         if (managedEffects(actor, definition.id, threshold.id).length) continue;
         const effect = await buildEffect(definition, threshold, this.statusEffect, this.worldTime());
         if (effect) additions.push(effect);
       }
     }
     const update = { [`flags.${MODULE_ID}.resources`]: states };
+    if (actions.length) {
+      const pending = [...(actor.getFlag(MODULE_ID, "pendingActions") ?? []), ...actions];
+      if (pending.length > 100) throw new Error("Too many pending rolls. Retry the pending actions before adding more.");
+      update[`flags.${MODULE_ID}.pendingActions`] = pending;
+    }
     if (eventId) update[`flags.${MODULE_ID}.recentEvents`] = [...recentEvents, eventId].slice(-200);
     await this.#commit(actor, update, additions, [...deletions]);
+    if (actions.length) await this.#runActions(actor, new Set(actions.map(a => a.id)));
     return { resources: states, changes };
   }
 

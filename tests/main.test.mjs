@@ -32,14 +32,54 @@ await import("../scripts/main.mjs");
 test("Foundry init registers world schema, settings menu, and documented module API", async () => {
   await hooks.get("init")();
   const api = game.modules.get(MODULE_ID).api;
-  for (const method of ["open", "configure", "configureItem", "get", "set", "adjust", "reset", "applyItem", "applyOnHit"]) assert.equal(typeof api[method], "function");
+  for (const method of ["open", "openManager", "configure", "configureItem", "get", "set", "adjust", "reset", "applyItem", "applyOnHit", "removeEffect", "retryActions"]) assert.equal(typeof api[method], "function");
   assert.equal(registrations.get("definitions").scope, "world");
   assert.equal(registrations.get("resourceConfig").restricted, true);
+  assert.equal(registrations.get("manager").restricted, true);
   assert.equal(settings.get("definitions")[0].thresholds[1].status, "paralyzed");
+});
+
+test("GM scene controls expose the resource manager and register atomic native-damage markers", () => {
+  assert.equal(typeof hooks.get("dnd5e.preApplyDamage"), "function");
+  const controls = { tokens: { tools: {} } };
+  hooks.get("getSceneControlButtons")(controls);
+  assert.equal(controls.tokens.tools[MODULE_ID].button, true);
+  assert.equal(typeof controls.tokens.tools[MODULE_ID].onChange, "function");
+  game.user.isGM = false;
+  const playerControls = { tokens: { tools: {} } };
+  hooks.get("getSceneControlButtons")(playerControls);
+  assert.deepEqual(playerControls.tokens.tools, {});
+  game.user.isGM = true;
+});
+
+test("manager opened through module settings refreshes after combat changes too", () => {
+  const Manager = registrations.get("manager").type;
+  const app = new Manager();
+  app.rendered = true;
+  let renders = 0;
+  app.render = () => { renders++; };
+  hooks.get("updateActor")();
+  assert.equal(renders, 1);
+  app.rendered = false;
 });
 
 test("combat hooks are registered for v14 messages, native damage and optional Midi-QOL", () => {
   for (const hook of ["createChatMessage", "updateChatMessage", "dnd5e.applyDamage", "midi-qol.RollComplete", "refreshToken", "renderApplicationV2"]) assert.equal(typeof hooks.get(hook), "function");
+});
+
+test("manager follows token selection, scene changes and token creation/removal", () => {
+  const Manager = registrations.get("manager").type;
+  const app = new Manager();
+  app.rendered = true;
+  let renders = 0;
+  app.render = () => { renders++; };
+  try {
+    for (const hook of ["controlToken", "canvasReady", "createToken", "deleteToken"]) {
+      const before = renders;
+      hooks.get(hook)?.();
+      assert.equal(renders, before + 1, hook);
+    }
+  } finally { app.rendered = false; }
 });
 
 test("sheet actions attach to the outer frame when v14 hooks provide inner content", () => {

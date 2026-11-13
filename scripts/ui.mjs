@@ -1,5 +1,7 @@
 import { MODULE_ID, defaultDefinitions, numeric, validateDefinitions } from "./domain.mjs";
 import { validateItemRules } from "./combat.mjs";
+import { managedEffects } from "./effects.mjs";
+import { parseEffectCommand } from "./commands.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const tr = key => globalThis.game?.i18n?.localize(`SRB.${key}`) ?? key;
@@ -18,14 +20,20 @@ export function trackerContext(actors, service, localize = tr) {
     hasActors: actors.length > 0, isGM: globalThis.game?.user?.isGM ?? false,
     actors: actors.filter(actor => actor.isOwner).map(actor => ({
       uuid: actor.uuid, name: actor.name,
+      pendingCount: actor.getFlag?.(MODULE_ID, "pendingActions")?.length ?? 0,
       resources: service.get(actor).map(({ definition, state }) => ({
         ...definition, ...state, actorUuid: actor.uuid,
+        effects: managedEffects(actor, definition.id).map(effect => ({ id: effect.id, name: effect.name, disabled: Boolean(effect.disabled || effect.isSuppressed) })),
         percent: Math.min(100, Math.max(0, Number(state.value) / definition.max * 100)),
         thresholds: definition.thresholds.map(threshold => {
           const reached = state.reached.includes(threshold.id);
+          const active = managedEffects(actor, definition.id, threshold.id).some(e => !e.disabled && !e.isSuppressed);
+          const status = Object.values(globalThis.CONFIG?.statusEffects ?? {}).find(s => s.id === threshold.status);
+          const statusLabel = status ? (globalThis.game?.i18n?.localize(status.name ?? status.label ?? status.id) ?? status.id) : threshold.status;
+          const effectSummary = [statusLabel, threshold.effect, threshold.changes.length ? localize("CustomModifiers") : ""].filter(Boolean).join(" · ");
           return {
-            ...threshold, reached, percent: threshold.at / definition.max * 100,
-            tooltip: `${threshold.at}: ${threshold.name}\n${threshold.description}${threshold.status ? `\n${threshold.status}` : ""}\n${localize(reached ? "Reached" : "NotReached")}`
+            ...threshold, reached, active, effectSummary, percent: threshold.at / definition.max * 100,
+            tooltip: `${threshold.at}: ${threshold.name}\n${localize("Description")}: ${threshold.description}\n${localize("Effect")}: ${effectSummary || "—"}\n${localize(reached ? "Reached" : "NotReached")}${active ? ` · ${localize("Active")}` : ""}`
           };
         })
       }))
@@ -43,7 +51,8 @@ export function readDefinitionForm(form, resourceId) {
       const read = name => row.querySelector(`[name="${name}"]`)?.value ?? "";
       return {
         id: row.dataset.thresholdId, name: read("thresholdName"), at: numeric(read("at")), mode: read("mode"), status: read("status"),
-        description: read("thresholdDescription"), duration: numeric(read("duration") || 0), changes: JSON.parse(read("changes") || "[]")
+        description: read("thresholdDescription"), duration: numeric(read("duration") || 0), changes: JSON.parse(read("changes") || "[]"),
+        effect: read("thresholdEffect"), autoDamage: row.querySelector('[name="autoDamage"]')?.checked ?? true
       };
     })
   }])[0];
@@ -70,14 +79,15 @@ export class ResourceTracker extends HandlebarsApplicationMixin(ApplicationV2) {
     window: { title: "SRB.Tracker", icon: "fa-solid fa-bars-progress", resizable: true },
     position: { width: 460, height: "auto" },
     actions: {
-      adjust: this.adjust, reset: this.reset, treat: this.treat, configure: this.configure, refresh: this.refresh
+      adjust: this.adjust, reset: this.reset, treat: this.treat, configure: this.configure, refresh: this.refresh,
+      removeEffect: this.removeEffect, retryActions: this.retryActions, manager: this.manager
     }
   };
   static PARTS = { content: { template: template("tracker") } };
 
-  constructor({ actors = [], service, resolveActors, configure, ...options } = {}) {
+  constructor({ actors = [], service, resolveActors, configure, manager, ...options } = {}) {
     super(options);
-    Object.assign(this, { actors, service, resolveActors, configureResources: configure });
+    Object.assign(this, { actors, service, resolveActors, configureResources: configure, openManager: manager });
   }
 
   async _prepareContext() { return trackerContext(this.actors, this.service); }
@@ -124,6 +134,19 @@ export class ResourceTracker extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static configure() { this.configureResources?.(); }
+  static manager() { this.openManager?.(); }
+  static async removeEffect(event, target) {
+    return uiAction(async () => {
+      await this.service.removeEffect(target.dataset.actorUuid, target.dataset.effectId);
+      this.render({ force: true });
+    });
+  }
+  static async retryActions(event, target) {
+    return uiAction(async () => {
+      await this.service.retryActions(target.dataset.actorUuid);
+      this.render({ force: true });
+    });
+  }
   static refresh() {
     if (this.resolveActors) this.actors = this.resolveActors();
     this.render({ force: true });
@@ -134,17 +157,19 @@ export class ResourceConfig extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "silverlane-resource-config", tag: "form", classes: ["srb", "srb-config"],
     window: { title: "SRB.Configure", icon: "fa-solid fa-sliders", resizable: true },
-    position: { width: 740, height: 730 },
+    position: { width: 940, height: 760 },
     form: { closeOnSubmit: false, handler: this.submit },
-    actions: { addResource: this.addResource, removeResource: this.removeResource, addThreshold: this.addThreshold, removeThreshold: this.removeThreshold }
+    actions: { addResource: this.addResource, removeResource: this.removeResource, addThreshold: this.addThreshold, removeThreshold: this.removeThreshold,
+      selectResource: this.selectResource, presetNecrotic: this.presetNecrotic }
   };
   static PARTS = { content: { template: template("resource-config") } };
 
-  constructor(options = {}) {
+  constructor({ selectedId, createNew = false, ...options } = {}) {
     super(options);
     requireGM();
     this.draft = validateDefinitions(game.settings.get(MODULE_ID, "definitions"));
-    this.selectedId = this.draft[0]?.id;
+    this.selectedId = this.draft.some(d => d.id === selectedId) ? selectedId : this.draft[0]?.id;
+    if (createNew) this.newResource();
   }
 
   async _prepareContext() {
@@ -183,6 +208,8 @@ export class ResourceConfig extends HandlebarsApplicationMixin(ApplicationV2) {
       const definitions = validateDefinitions(this.draft);
       for (const def of definitions) for (const threshold of def.thresholds) {
         if (threshold.status && !Object.values(CONFIG.statusEffects).some(s => s.id === threshold.status)) throw new Error(`Unknown status: ${threshold.status}`);
+        const command = parseEffectCommand(threshold.effect);
+        if (command && globalThis.Roll?.validate && !Roll.validate(command.formula)) throw new Error(`Invalid roll formula: ${command.formula}`);
       }
       await game.settings.set(MODULE_ID, "definitions", definitions);
       ui.notifications.info(tr("Saved"));
@@ -193,11 +220,29 @@ export class ResourceConfig extends HandlebarsApplicationMixin(ApplicationV2) {
   static addResource() {
     return uiAction(async () => {
       this.syncDraft();
-      const base = defaultDefinitions()[0];
-      this.selectedId = freshId("resource");
-      this.draft.push({ ...base, id: this.selectedId, name: tr("NewResource"), description: "", thresholds: [] });
+      this.newResource();
       this.render({ force: true });
     });
+  }
+
+  newResource() {
+    if (this.draft.length >= 40) throw new Error("A maximum of 40 resources is supported.");
+    const base = defaultDefinitions()[0];
+    this.selectedId = freshId("resource");
+    this.draft.push({ ...base, id: this.selectedId, name: tr("NewResource"), description: "", thresholds: [] });
+  }
+
+  static selectResource(event, target) {
+    return uiAction(async () => {
+      this.syncDraft();
+      this.selectedId = target.dataset.resourceId;
+      this.render({ force: true });
+    });
+  }
+
+  static presetNecrotic(event, target) {
+    const row = target.closest("section[data-threshold-id]");
+    row.querySelector('[name="thresholdEffect"]').value = "[[/damage 6d10 type=necrotic]]";
   }
 
   static removeResource() {
@@ -213,7 +258,8 @@ export class ResourceConfig extends HandlebarsApplicationMixin(ApplicationV2) {
     return uiAction(async () => {
       this.syncDraft();
       this.draft.find(d => d.id === this.selectedId)?.thresholds.push({
-        id: freshId("threshold"), at: 20, name: tr("NewThreshold"), description: "", mode: "sticky", status: "", changes: [], duration: 0
+        id: freshId("threshold"), at: Math.min(20, this.draft.find(d => d.id === this.selectedId).max), name: tr("NewThreshold"), description: "", mode: "sticky", status: "", changes: [], duration: 0,
+        effect: "", autoDamage: true
       });
       this.render({ force: true });
     });
