@@ -1,0 +1,12 @@
+{
+  "name": "silverlane-resource-bars",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node tools/check.mjs",
+    "build": "node tools/build.mjs"
+  },
+  "engines": { "node": ">=22" }
+}
