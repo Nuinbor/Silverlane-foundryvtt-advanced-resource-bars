@@ -33,7 +33,7 @@
   "SRB.None": "Нет",
   "SRB.Duration": "Длительность в секундах (0 = бессрочно)",
   "SRB.CustomChanges": "Дополнительно: изменения Active Effect (JSON)",
-  "SRB.ChangesHint": "Штраф КД для v14: [{\"key\":\"system.attributes.ac.bonus\",\"type\":\"add\",\"phase\":\"initial\",\"value\":\"-2\"}]. Типы: custom, multiply, add, downgrade, upgrade, override. Также принимается старый числовой mode 0–5. Допустимы только ключи system.*.",
+  "SRB.ChangesHint": "Штраф КД: [{\"key\":\"system.attributes.ac.bonus\",\"type\":\"add\",\"phase\":\"initial\",\"value\":\"-2\"}]. Типы: custom, multiply, add, downgrade, upgrade, override; числовой mode 0–5 тоже принимается. Формат эффектов выбирается автоматически для Foundry 13/14. Допустимы только ключи system.*.",
   "SRB.ConfigHint": "Шкалы доступны всем Actor. ID не меняются. Эффект максимального порога сохраняется при сбросе в ноль. Перед удалением шкалы используйте лечение: существующие эффекты не удаляются автоматически.",
   "SRB.DeleteResourceConfirm": "Удалить описание шкалы? История персонажей и существующие эффекты сохранятся. Если нужно снять эффекты, сначала используйте лечение у затронутых персонажей.",
   "SRB.Save": "Сохранить изменения",
@@ -60,5 +60,5 @@
   "SRB.Always": "Все видимые свои токены",
   "SRB.GMOnly": "Настройки модуля может менять только мастер.",
   "SRB.InvalidItem": "Нужен предмет с правом владения.",
-  "SRB.WrongSystem": "Silverlane Resource Bars требует D&D5e 6.1+ на Foundry v14."
+  "SRB.WrongSystem": "Silverlane Resource Bars требует D&D5e 5.3.3+ на Foundry v13.347+ или v14."
 }

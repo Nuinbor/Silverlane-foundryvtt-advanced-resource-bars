@@ -33,7 +33,7 @@
   "SRB.None": "None",
   "SRB.Duration": "Duration in seconds (0 = unlimited)",
   "SRB.CustomChanges": "Advanced: Active Effect changes (JSON)",
-  "SRB.ChangesHint": "v14 AC penalty: [{\"key\":\"system.attributes.ac.bonus\",\"type\":\"add\",\"phase\":\"initial\",\"value\":\"-2\"}]. Types: custom, multiply, add, downgrade, upgrade, override. Legacy numeric mode 0–5 is also accepted. Only system.* keys are accepted.",
+  "SRB.ChangesHint": "AC penalty: [{\"key\":\"system.attributes.ac.bonus\",\"type\":\"add\",\"phase\":\"initial\",\"value\":\"-2\"}]. Types: custom, multiply, add, downgrade, upgrade, override; numeric mode 0–5 is also accepted. Effect format is selected automatically for Foundry 13/14. Only system.* keys are accepted.",
   "SRB.ConfigHint": "Definitions apply to all Actors. IDs stay stable. At maximum the terminal effect survives the zero reset. Treat affected Actors before deleting definitions; existing effects are not silently removed.",
   "SRB.DeleteResourceConfirm": "Delete this resource definition? Actor history and existing effects will be preserved. Treat affected Actors before deletion if you want their effects removed.",
   "SRB.Save": "Save changes",
@@ -60,5 +60,5 @@
   "SRB.Always": "All owned visible tokens",
   "SRB.GMOnly": "Only a GM can edit module configuration.",
   "SRB.InvalidItem": "An owned Item is required.",
-  "SRB.WrongSystem": "Silverlane Resource Bars requires D&D5e 6.1+ on Foundry v14."
+  "SRB.WrongSystem": "Silverlane Resource Bars requires D&D5e 5.3.3+ on Foundry v13.347+ or v14."
 }
