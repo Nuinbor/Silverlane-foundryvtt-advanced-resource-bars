@@ -1,0 +1,18 @@
+<div class="srb-panel">
+  <div class="srb-eyebrow">SILVERLANE · {{localize "SRB.AttackRules"}}</div>
+  <h2>{{itemName}}</h2>
+  <p class="srb-hint">{{localize "SRB.ItemRulesHint"}}</p>
+  {{#each rules}}
+    <section class="srb-rule" data-rule-index="{{index}}">
+      <div class="srb-grid">
+        <label>{{localize "SRB.Resource"}}<select name="resourceId">{{#each resources}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
+        <label>{{localize "SRB.Delta"}}<input type="number" name="amount" value="{{amount}}" step="any" min="-1000000" max="1000000" required></label>
+        <label>{{localize "SRB.Trigger"}}<select name="trigger"><option value="hit" {{#if hit}}selected{{/if}}>{{localize "SRB.OnHit"}}</option><option value="damage" {{#if damage}}selected{{/if}}>{{localize "SRB.OnDamage"}}</option><option value="manual" {{#if manual}}selected{{/if}}>{{localize "SRB.Manual"}}</option></select></label>
+        <label>{{localize "SRB.Activity"}}<select name="activityId"><option value="">{{localize "SRB.AllActivities"}}</option>{{#each activities}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}} ({{id}})</option>{{/each}}</select></label>
+      </div>
+      <button type="button" data-action="removeRule" data-index="{{index}}"><i class="fa-solid fa-trash"></i> {{localize "SRB.Delete"}}</button>
+    </section>
+  {{else}}<p class="srb-empty">{{localize "SRB.NoRules"}}</p>{{/each}}
+  {{#if hasResources}}<button type="button" data-action="addRule"><i class="fa-solid fa-plus"></i> {{localize "SRB.AddRule"}}</button>{{else}}<p>{{localize "SRB.NoResources"}}</p>{{/if}}
+  <footer><button type="submit" class="srb-primary"><i class="fa-solid fa-floppy-disk"></i> {{localize "SRB.Save"}}</button></footer>
+</div>

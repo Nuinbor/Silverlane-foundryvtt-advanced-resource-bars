@@ -1,0 +1,39 @@
+<div class="srb-panel">
+  <div class="srb-toolbar">
+    <select name="selectedResource" aria-label="{{localize 'SRB.Resources'}}">{{#each resources}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select>
+    <button type="button" data-action="addResource"><i class="fa-solid fa-plus"></i> {{localize "SRB.AddResource"}}</button>
+    {{#if selected}}<button type="button" data-action="removeResource" title="{{localize 'SRB.Delete'}}"><i class="fa-solid fa-trash"></i></button>{{/if}}
+  </div>
+  {{#if selected}}
+  <div class="srb-grid">
+    <label>{{localize "SRB.Name"}}<input name="name" value="{{selected.name}}" maxlength="120" required></label>
+    <label>ID<input value="{{selected.id}}" readonly class="srb-id"></label>
+    <label>{{localize "SRB.Maximum"}}<input type="number" name="max" value="{{selected.max}}" min="0.001" max="1000000" step="any" required></label>
+    <label>{{localize "SRB.Color"}}<input type="color" name="color" value="{{selected.color}}"></label>
+  </div>
+  <label>{{localize "SRB.Description"}}<textarea name="description" rows="2">{{selected.description}}</textarea></label>
+  <div class="srb-checks">
+    <label><input type="checkbox" name="resetOnMax" {{#if selected.resetOnMax}}checked{{/if}}> {{localize "SRB.ResetOnMax"}}</label>
+    <label><input type="checkbox" name="showOnToken" {{#if selected.showOnToken}}checked{{/if}}> {{localize "SRB.ShowOnToken"}}</label>
+  </div>
+  <div class="srb-section-heading"><h2>{{localize "SRB.Thresholds"}}</h2><button type="button" data-action="addThreshold"><i class="fa-solid fa-plus"></i> {{localize "SRB.AddThreshold"}}</button></div>
+  {{#each selected.thresholds}}
+    <section class="srb-threshold-editor" data-threshold-id="{{id}}">
+      <div class="srb-grid srb-threshold-heading">
+        <label>{{localize "SRB.Name"}}<input name="thresholdName" value="{{name}}" maxlength="120"></label>
+        <label>{{localize "SRB.ThresholdAt"}}<input type="number" name="at" value="{{at}}" min="0.001" step="any" required></label>
+        <button type="button" data-action="removeThreshold" data-threshold-id="{{id}}" title="{{localize 'SRB.Delete'}}"><i class="fa-solid fa-trash"></i></button>
+      </div>
+      <label>{{localize "SRB.Description"}}<textarea name="thresholdDescription" rows="2">{{description}}</textarea></label>
+      <div class="srb-grid">
+        <label>{{localize "SRB.Behavior"}}<select name="mode"><option value="sticky" {{#if sticky}}selected{{/if}}>{{localize "SRB.Sticky"}}</option><option value="current" {{#if current}}selected{{/if}}>{{localize "SRB.Current"}}</option></select></label>
+        <label>{{localize "SRB.Status"}}<select name="status"><option value="">{{localize "SRB.None"}}</option>{{#each statuses}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
+        <label>{{localize "SRB.Duration"}}<input type="number" name="duration" value="{{duration}}" min="0" max="31536000" step="any"></label>
+      </div>
+      <details><summary>{{localize "SRB.CustomChanges"}}</summary><p class="srb-hint">{{localize "SRB.ChangesHint"}}</p><textarea name="changes" class="srb-code" rows="4" spellcheck="false">{{changesJson}}</textarea></details>
+    </section>
+  {{/each}}
+  {{else}}<p class="srb-empty">{{localize "SRB.NoResources"}}</p>{{/if}}
+  <p class="srb-hint">{{localize "SRB.ConfigHint"}}</p>
+  <footer><button type="submit" class="srb-primary"><i class="fa-solid fa-floppy-disk"></i> {{localize "SRB.Save"}}</button></footer>
+</div>

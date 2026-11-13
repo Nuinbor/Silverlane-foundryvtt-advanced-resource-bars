@@ -1,0 +1,43 @@
+<div class="srb-panel">
+  <div class="srb-toolbar">
+    <span class="srb-eyebrow">SILVERLANE · {{localize "SRB.Resources"}}</span>
+    <div class="srb-actions">
+      <button type="button" data-action="refresh" title="{{localize 'SRB.Refresh'}}"><i class="fa-solid fa-rotate"></i></button>
+      {{#if isGM}}<button type="button" data-action="configure" title="{{localize 'SRB.Configure'}}"><i class="fa-solid fa-sliders"></i></button>{{/if}}
+    </div>
+  </div>
+  {{#unless hasActors}}<p class="srb-empty">{{localize "SRB.NoActor"}}</p>{{/unless}}
+  {{#each actors}}
+    <section class="srb-actor">
+      <h2>{{name}}</h2>
+      {{#each resources}}
+        <article class="srb-resource {{#unless enabled}}srb-disabled{{/unless}}" style="--srb-resource: {{color}}">
+          <header>
+            <label class="srb-resource-name" title="{{description}}"><input type="checkbox" data-enable-resource data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}" {{#if enabled}}checked{{/if}}> {{name}}</label>
+            <span class="srb-numeric"><input type="number" step="any" min="0" value="{{value}}" data-edit-value data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}" aria-label="{{name}}"> / {{max}}</span>
+          </header>
+          <div class="srb-scale" role="meter" aria-label="{{name}}" aria-valuenow="{{value}}" aria-valuemin="0" aria-valuemax="{{max}}">
+            <div class="srb-fill" style="width: {{percent}}%"></div>
+            {{#each thresholds}}<span class="srb-tick {{#if reached}}reached{{/if}}" tabindex="0" style="left: {{percent}}%" title="{{tooltip}}" aria-label="{{tooltip}}"><span>{{at}}</span></span>{{/each}}
+          </div>
+          <div class="srb-resource-footer">
+            <div class="srb-adjustments">
+              <button type="button" data-action="adjust" data-amount="-5" data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}">−5</button>
+              <button type="button" data-action="adjust" data-amount="-1" data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}">−1</button>
+              <button type="button" data-action="adjust" data-amount="1" data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}">+1</button>
+              <button type="button" data-action="adjust" data-amount="5" data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}">+5</button>
+            </div>
+            <div class="srb-actions">
+              <button type="button" data-action="reset" data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}" title="{{localize 'SRB.ResetHint'}}">{{localize "SRB.Reset"}}</button>
+              <button type="button" data-action="treat" data-actor-uuid="{{actorUuid}}" data-resource-id="{{id}}" title="{{localize 'SRB.TreatConfirm'}}"><i class="fa-solid fa-kit-medical"></i> {{localize "SRB.Treat"}}</button>
+            </div>
+          </div>
+          <details class="srb-history"><summary>{{localize "SRB.Thresholds"}} · {{localize "SRB.Cycles"}}: {{cycles}}</summary>
+            <ul>{{#each thresholds}}<li class="{{#if reached}}reached{{/if}}"><span>{{#if reached}}●{{else}}○{{/if}} {{at}} — {{name}}</span><small>{{description}}</small></li>{{/each}}</ul>
+          </details>
+        </article>
+      {{else}}<p class="srb-empty">{{localize "SRB.NoResources"}}</p>{{/each}}
+    </section>
+  {{/each}}
+  <p class="srb-hint">{{localize "SRB.TrackerHint"}}</p>
+</div>
