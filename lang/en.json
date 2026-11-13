@@ -33,7 +33,7 @@
   "SRB.None": "None",
   "SRB.Duration": "Duration in seconds (0 = unlimited)",
   "SRB.CustomChanges": "Advanced: Active Effect changes (JSON)",
-  "SRB.ChangesHint": "Example AC penalty: [{\"key\":\"system.attributes.ac.bonus\",\"mode\":2,\"value\":\"-2\"}]. Modes: 0 custom, 1 multiply, 2 add, 3 downgrade, 4 upgrade, 5 override. Only system.* keys are accepted.",
+  "SRB.ChangesHint": "v14 AC penalty: [{\"key\":\"system.attributes.ac.bonus\",\"type\":\"add\",\"phase\":\"initial\",\"value\":\"-2\"}]. Types: custom, multiply, add, downgrade, upgrade, override. Legacy numeric mode 0–5 is also accepted. Only system.* keys are accepted.",
   "SRB.ConfigHint": "Definitions apply to all Actors. IDs stay stable. At maximum the terminal effect survives the zero reset. Treat affected Actors before deleting definitions; existing effects are not silently removed.",
   "SRB.DeleteResourceConfirm": "Delete this resource definition? Actor history and existing effects will be preserved. Treat affected Actors before deletion if you want their effects removed.",
   "SRB.Save": "Save changes",

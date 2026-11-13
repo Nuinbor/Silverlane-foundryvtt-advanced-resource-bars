@@ -39,7 +39,7 @@ export function readDefinitionForm(form, resourceId) {
     id: resourceId, name: value("name"), max: numeric(value("max")), color: value("color"), description: value("description"),
     resetOnMax: Boolean(form.querySelector('[name="resetOnMax"]')?.checked),
     showOnToken: Boolean(form.querySelector('[name="showOnToken"]')?.checked),
-    thresholds: [...form.querySelectorAll("[data-threshold-id]")].map(row => {
+    thresholds: [...form.querySelectorAll("section[data-threshold-id]")].map(row => {
       const read = name => row.querySelector(`[name="${name}"]`)?.value ?? "";
       return {
         id: row.dataset.thresholdId, name: read("thresholdName"), at: numeric(read("at")), mode: read("mode"), status: read("status"),
@@ -149,7 +149,7 @@ export class ResourceConfig extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async _prepareContext() {
     const selected = this.draft.find(d => d.id === this.selectedId);
-    const statuses = [...CONFIG.statusEffects].map(status => ({ id: status.id, label: game.i18n.localize(status.name ?? status.label ?? status.id) }))
+    const statuses = Object.values(CONFIG.statusEffects).map(status => ({ id: status.id, label: game.i18n.localize(status.name ?? status.label ?? status.id) }))
       .sort((a, b) => a.label.localeCompare(b.label));
     return {
       resources: this.draft.map(d => ({ ...d, selected: d.id === this.selectedId })),
@@ -182,7 +182,7 @@ export class ResourceConfig extends HandlebarsApplicationMixin(ApplicationV2) {
       this.syncDraft();
       const definitions = validateDefinitions(this.draft);
       for (const def of definitions) for (const threshold of def.thresholds) {
-        if (threshold.status && !CONFIG.statusEffects.some(s => s.id === threshold.status)) throw new Error(`Unknown status: ${threshold.status}`);
+        if (threshold.status && !Object.values(CONFIG.statusEffects).some(s => s.id === threshold.status)) throw new Error(`Unknown status: ${threshold.status}`);
       }
       await game.settings.set(MODULE_ID, "definitions", definitions);
       ui.notifications.info(tr("Saved"));

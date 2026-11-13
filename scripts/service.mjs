@@ -38,11 +38,10 @@ export class ResourceService {
     return this.#mutate(actor, async document => {
       this.#definition(resourceId);
       if (!clearHistory) return this.#apply(document, [{ resourceId, value: 0 }]);
-      const states = document.getFlag(MODULE_ID, "resources") ?? {};
+      const states = structuredClone(document.getFlag(MODULE_ID, "resources") ?? {});
       const effects = managedEffects(document, resourceId);
-      if (effects.length) await document.deleteEmbeddedDocuments("ActiveEffect", effects.map(e => e.id));
       states[resourceId] = { ...this.#state(states[resourceId]), value: 0, reached: [], cycles: 0 };
-      await document.update({ [`flags.${MODULE_ID}.resources`]: states });
+      await this.#commit(document, { [`flags.${MODULE_ID}.resources`]: states }, [], effects.map(e => e.id));
       return states[resourceId];
     });
   }
@@ -50,9 +49,9 @@ export class ResourceService {
   async setEnabled(actor, resourceId, enabled) {
     return this.#mutate(actor, async document => {
       this.#definition(resourceId);
-      const states = document.getFlag(MODULE_ID, "resources") ?? {};
+      const states = structuredClone(document.getFlag(MODULE_ID, "resources") ?? {});
       states[resourceId] = { ...this.#state(states[resourceId]), enabled: Boolean(enabled) };
-      await document.update({ [`flags.${MODULE_ID}.resources`]: states });
+      await this.#commit(document, { [`flags.${MODULE_ID}.resources`]: states });
       return states[resourceId];
     });
   }
@@ -97,7 +96,7 @@ export class ResourceService {
     const recentEvents = actor.getFlag(MODULE_ID, "recentEvents") ?? [];
     if (eventId && recentEvents.includes(eventId)) return { duplicate: true };
     if (eventId && (typeof eventId !== "string" || eventId.length > 500)) throw new Error("Invalid event ID.");
-    const states = actor.getFlag(MODULE_ID, "resources") ?? {};
+    const states = structuredClone(actor.getFlag(MODULE_ID, "resources") ?? {});
     const changes = [];
     // Aggregate same-resource rules to avoid multiple reset cycles from one attack.
     const grouped = new Map();
@@ -128,11 +127,49 @@ export class ResourceService {
         if (effect) additions.push(effect);
       }
     }
-    if (additions.length) await actor.createEmbeddedDocuments("ActiveEffect", additions);
-    if (deletions.size) await actor.deleteEmbeddedDocuments("ActiveEffect", [...deletions]);
     const update = { [`flags.${MODULE_ID}.resources`]: states };
     if (eventId) update[`flags.${MODULE_ID}.recentEvents`] = [...recentEvents, eventId].slice(-200);
-    await actor.update(update);
+    await this.#commit(actor, update, additions, [...deletions]);
     return { resources: states, changes };
+  }
+
+  /** Compensate effect changes if a later document write is rejected or vetoed. */
+  async #commit(actor, update, additions = [], deletionIds = []) {
+    const beforeIds = new Set(Array.from(actor.effects ?? [], e => e.id));
+    const snapshots = Array.from(actor.effects ?? []).filter(e => deletionIds.includes(e.id)).map(effect => {
+      const data = effect.toObject ? effect.toObject() : structuredClone(effect);
+      delete data.id;
+      data._id = effect.id;
+      return data;
+    });
+    const additionTags = new Set(additions.map(e => JSON.stringify(e.flags?.[MODULE_ID])));
+    try {
+      if (additions.length) {
+        const created = await actor.createEmbeddedDocuments("ActiveEffect", additions);
+        if (created?.length !== additions.length) throw new Error("Effect creation was refused or incomplete.");
+      }
+      if (deletionIds.length) {
+        await actor.deleteEmbeddedDocuments("ActiveEffect", deletionIds);
+        if (Array.from(actor.effects).some(e => deletionIds.includes(e.id))) throw new Error("Effect removal was refused or incomplete.");
+      }
+      if (!await actor.update(update)) throw new Error("Actor update was refused.");
+    } catch (error) {
+      try {
+        const created = Array.from(actor.effects ?? []).filter(e => !beforeIds.has(e.id) && additionTags.has(JSON.stringify(e.flags?.[MODULE_ID])));
+        if (created.length) {
+          await actor.deleteEmbeddedDocuments("ActiveEffect", created.map(e => e.id));
+          if (Array.from(actor.effects).some(e => created.some(c => c.id === e.id))) throw new Error("Could not remove newly created effects.");
+        }
+        const remainingIds = new Set(Array.from(actor.effects ?? [], e => e.id));
+        const missing = snapshots.filter(data => !remainingIds.has(data._id));
+        if (missing.length) {
+          await actor.createEmbeddedDocuments("ActiveEffect", missing, { keepId: true });
+          if (missing.some(data => !Array.from(actor.effects).some(e => e.id === data._id))) throw new Error("Could not restore previous effects.");
+        }
+      } catch (rollbackError) {
+        throw new AggregateError([error, rollbackError], `${error.message} Rollback also failed; inspect this Actor's resource effects manually.`, { cause: error });
+      }
+      throw error;
+    }
   }
 }

@@ -30,6 +30,12 @@ export class CombatIntegration {
     return gm ? gm.id === this.game.user.id : authorId === this.game.user.id;
   }
 
+  #mayApply(actor, author) {
+    if (!actor?.isOwner || !author) return false;
+    // A broadcast must not turn the elected GM into a permission proxy for its author.
+    return author.isGM || Boolean(actor.testUserPermission?.(author, "OWNER"));
+  }
+
   get midiActive() { return Boolean(this.game.modules.get("midi-qol")?.active); }
 
   async onAttackMessage(message) {
@@ -43,14 +49,16 @@ export class CombatIntegration {
       if (target.isMiss !== false) continue;
       const document = await this.resolve(target.token ?? target.actor);
       const actor = document?.documentName === "Actor" ? document : document?.actor;
-      if (actor?.isOwner) actors.set(actor.uuid, actor);
+      if (this.#mayApply(actor, message.author)) actors.set(actor.uuid, actor);
     }
     for (const actor of actors.values()) await this.service.applyRules(actor, rules, { eventId: `hit:${message.uuid}` });
   }
 
   async onDamage(actor, amount, options = {}) {
     if (!(amount > 0) || !actor.isOwner) return;
-    const origin = typeof options.origin === "string" ? await this.resolve(options.origin) : options.origin;
+    // The damage tray uses origin; the chat-card context menu uses originatingMessage.
+    const source = options.origin ?? options.originatingMessage;
+    const origin = typeof source === "string" ? await this.resolve(source) : source;
     if (!origin) return;
     const item = origin.getAssociatedItem?.();
     const activityId = origin.getAssociatedActivity?.()?.id ?? origin.system?.activity?.id;
@@ -62,12 +70,14 @@ export class CombatIntegration {
 
   async onMidiComplete(workflow) {
     if (!this.midiActive || !this.#authority(workflow.userId ?? workflow.user?.id)) return;
+    const authorId = workflow.userId ?? workflow.user?.id ?? this.game.user.id;
+    const author = this.game.users.get?.(authorId) ?? (authorId === this.game.user.id ? this.game.user : null);
     const rules = this.#rules(workflow.item, "hit", workflow.activity?.id);
     if (!rules.length) return;
     const actors = new Map();
     for (const token of workflow.hitTargets ?? []) {
       const actor = token.actor ?? token.document?.actor;
-      if (actor?.isOwner) actors.set(actor.uuid, actor);
+      if (this.#mayApply(actor, author)) actors.set(actor.uuid, actor);
     }
     for (const actor of actors.values()) await this.service.applyRules(actor, rules, { eventId: workflow.uuid ? `midi:${workflow.uuid}` : undefined });
   }

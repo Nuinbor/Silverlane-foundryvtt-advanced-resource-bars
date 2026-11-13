@@ -3,8 +3,9 @@ import { MODULE_ID } from "../scripts/domain.mjs";
 export function actorFixture({ uuid = "Actor.hero", owner = true } = {}) {
   const actor = {
     documentName: "Actor", uuid, id: uuid.split(".").at(-1), name: "Hero", isOwner: owner,
-    flags: {}, effects: [], updates: [],
-    getFlag(scope, key) { return structuredClone(this.flags[scope]?.[key]); },
+    flags: {}, effects: [], updates: [], ownership: { default: 0, player: owner ? 3 : 0 }, nextEffectId: 0,
+    testUserPermission(user) { return Boolean(user?.isGM || (this.ownership[user?.id] ?? this.ownership.default) >= 3); },
+    getFlag(scope, key) { return this.flags[scope]?.[key]; },
     async update(update) {
       this.updates.push(structuredClone(update));
       for (const [path, value] of Object.entries(update)) {
@@ -15,9 +16,12 @@ export function actorFixture({ uuid = "Actor.hero", owner = true } = {}) {
       }
       return this;
     },
-    async createEmbeddedDocuments(type, data) {
+    async createEmbeddedDocuments(type, data, options = {}) {
       if (type !== "ActiveEffect") throw new Error("Wrong document type");
-      const docs = data.map((effect, i) => ({ ...structuredClone(effect), id: `effect-${this.effects.length + i}` }));
+      const docs = data.map(effect => {
+        const id = options.keepId && effect._id ? effect._id : `effect-${this.nextEffectId++}`;
+        return { ...structuredClone(effect), _id: id, id };
+      });
       this.effects.push(...docs);
       return docs;
     },
@@ -32,5 +36,5 @@ export function actorFixture({ uuid = "Actor.hero", owner = true } = {}) {
 export const stateOf = actor => actor.flags[MODULE_ID]?.resources?.["nerve-damage"];
 export const statusFixture = async status => {
   if (status !== "paralyzed") throw new Error(`Unknown status: ${status}`);
-  return { name: "Paralyzed", type: "condition", img: "icons/paralysis.svg", statuses: [status], system: { special: true }, changes: [] };
+  return { name: "Paralyzed", type: "condition", img: "icons/paralysis.svg", statuses: [status], system: { type: status, special: true, changes: [] }, start: null };
 };

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { MODULE_ID } from "../scripts/domain.mjs";
+import { Window } from "happy-dom";
 
 const hooks = new Map();
 const settings = new Map();
@@ -38,4 +39,17 @@ test("Foundry init registers world schema, settings menu, and documented module 
 
 test("combat hooks are registered for v14 messages, native damage and optional Midi-QOL", () => {
   for (const hook of ["createChatMessage", "updateChatMessage", "dnd5e.applyDamage", "midi-qol.RollComplete", "refreshToken", "renderApplicationV2"]) assert.equal(typeof hooks.get(hook), "function");
+});
+
+test("sheet actions attach to the outer frame when v14 hooks provide inner content", () => {
+  const window = new Window();
+  globalThis.document = window.document;
+  globalThis.HTMLElement = window.HTMLElement;
+  const frame = document.createElement("section");
+  frame.innerHTML = '<header class="window-header"><button data-action="close">X</button></header><div class="window-content"></div>';
+  const app = { document: { documentName: "Actor", isOwner: true }, element: frame };
+  hooks.get("renderApplicationV2")(app, frame.querySelector(".window-content"));
+  assert.equal(frame.querySelectorAll(".window-header .srb-sheet-button").length, 1);
+  hooks.get("renderApplicationV2")(app, frame.querySelector(".window-content"));
+  assert.equal(frame.querySelectorAll(".window-header .srb-sheet-button").length, 1);
 });

@@ -83,3 +83,15 @@ test("valid custom changes and unordered thresholds normalize safely", () => {
   assert.deepEqual(result[0].thresholds.map(t => t.at), [20, 100]);
   assert.equal(result[0].thresholds[1].changes[0].value, "-2");
 });
+
+test("v14 native effect modifiers validate and legacy modes normalize to native types", () => {
+  const defs = defaultDefinitions();
+  defs[0].thresholds[0].changes = [
+    { key: "system.attributes.ac.bonus", type: "add", phase: "initial", value: "-2" },
+    { key: "system.test", mode: 5, value: "1" }
+  ];
+  const changes = validateDefinitions(defs)[0].thresholds[0].changes;
+  assert.equal(changes[0].type, "add");
+  assert.equal(changes[1].type, "override");
+  assert.equal(changes[1].phase, "initial");
+});

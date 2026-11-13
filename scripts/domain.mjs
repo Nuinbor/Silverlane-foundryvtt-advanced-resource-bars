@@ -2,6 +2,7 @@ export const MODULE_ID = "silverlane-resource-bars";
 
 const SAFE_ID = /^[a-z][a-z0-9_-]{0,63}$/;
 const RESERVED = new Set(["__proto__", "prototype", "constructor"]);
+const CHANGE_TYPES = ["custom", "multiply", "add", "downgrade", "upgrade", "override"];
 
 export function numeric(value) {
   if ((typeof value !== "number" && typeof value !== "string") || String(value).trim() === "" || !Number.isFinite(Number(value))) {
@@ -19,6 +20,20 @@ function text(value, fallback = "", max = 4000) {
   if (value == null) return fallback;
   if (typeof value !== "string" || value.length > max) throw new Error("Invalid text field.");
   return value;
+}
+
+export function normalizeEffectChanges(changes = []) {
+  if (!Array.isArray(changes) || changes.length > 30) throw new Error("Invalid effect changes.");
+  return changes.map(change => {
+    const type = change.type ?? (Number.isInteger(change.mode) ? CHANGE_TYPES[change.mode] : undefined);
+    const phase = change.phase ?? "initial";
+    if (typeof change.key !== "string" || !/^system\.[a-zA-Z0-9_.-]+$/.test(change.key)
+      || change.key.split(".").some(k => RESERVED.has(k)) || !CHANGE_TYPES.includes(type)
+      || typeof phase !== "string" || !/^[a-zA-Z][a-zA-Z0-9_.-]{0,63}$/.test(phase)) {
+      throw new Error("Effect changes require a safe system.* key and a valid v14 modifier type/phase.");
+    }
+    return { key: change.key, type, phase, value: text(String(change.value ?? ""), "", 1000), priority: change.priority == null ? null : numeric(change.priority) };
+  });
 }
 
 export function validateDefinitions(input) {
@@ -42,18 +57,9 @@ export function validateDefinitions(input) {
       if (at <= 0 || at > max) throw new Error("Threshold must be greater than zero and no greater than maximum.");
       const mode = t.mode ?? "sticky";
       if (!["sticky", "current"].includes(mode)) throw new Error("Unknown threshold mode.");
-      const changes = t.changes ?? [];
-      if (!Array.isArray(changes) || changes.length > 30) throw new Error("Invalid effect changes.");
-      const normalizedChanges = changes.map(change => {
-        if (typeof change.key !== "string" || !/^system\.[a-zA-Z0-9_.-]+$/.test(change.key)
-          || change.key.split(".").some(k => RESERVED.has(k))
-          || !Number.isInteger(change.mode) || change.mode < 0 || change.mode > 5) {
-          throw new Error("Effect changes require a safe system.* key and mode 0–5.");
-        }
-        return { key: change.key, mode: change.mode, value: text(String(change.value ?? ""), "", 1000), priority: change.priority == null ? change.mode * 10 : numeric(change.priority) };
-      });
+      const normalizedChanges = normalizeEffectChanges(t.changes);
       const duration = t.duration == null || t.duration === "" ? 0 : numeric(t.duration);
-      if (duration < 0 || duration > 31_536_000) throw new Error("Invalid duration in seconds.");
+      if (!Number.isInteger(duration) || duration < 0 || duration > 31_536_000) throw new Error("Duration must be whole seconds, from 0 to 31536000.");
       return {
         id: thresholdId, at, name: text(t.name, thresholdId, 120), description: text(t.description),
         mode, status: text(t.status, "", 100), changes: normalizedChanges, duration

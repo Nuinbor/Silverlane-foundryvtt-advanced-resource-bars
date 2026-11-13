@@ -51,10 +51,10 @@ await game.modules.get("silverlane-resource-bars").api.open();
 Чтобы добавить на 20 штраф КД −2, откройте этот порог и вставьте в «изменения Active Effect»:
 
 ```json
-[{ "key": "system.attributes.ac.bonus", "mode": 2, "value": "-2" }]
+[{ "key": "system.attributes.ac.bonus", "type": "add", "phase": "initial", "value": "-2" }]
 ```
 
-Можно одновременно выбрать статус и добавить собственные изменения. Сложные системные поля и режим `CUSTOM` имеют смысл только если сама D&D5e поддерживает соответствующую механику; модуль не исполняет JavaScript из настроек.
+Можно одновременно выбрать статус и добавить собственные изменения. Используется нативный формат v14 `system.changes`; числовой `mode` 0–5 тоже принимается и преобразуется в `type`. Сложные системные поля и тип `custom` имеют смысл только если сама D&D5e поддерживает соответствующую механику; модуль не исполняет JavaScript из настроек. Длительность эффекта задаётся целым числом секунд.
 
 ### «При попадании: +5 к поражению нервов»
 
@@ -70,11 +70,13 @@ await game.modules.get("silverlane-resource-bars").api.open();
 3. Добавьте правило: «Поражение нервов», изменение **5**, «При подтверждённом попадании». При необходимости выберите конкретную активность.
 4. Перед броском **отметьте цель Foundry**. После броска атаки D&D5e модуль берёт результаты попадания из карточки атаки и увеличивает шкалу попавших целей. Промахи и цели без определённого КД не учитываются.
 
-Автоматические попадания обрабатывает один активный GM. Если мастера нет в сети, автор броска может изменить только принадлежащие ему цели. Другие игроки не получают права записи в чужих Actor. Для атаки монстра по персонажу держите мастера подключённым.
+Автоматические попадания обрабатывает один активный GM. Бросок, выполненный мастером, может изменять шкалы чужих целей — это основной сценарий атаки монстра по персонажу. Бросок игрока может автоматически менять только Actor, которыми владеет сам автор броска, даже если GM подключён: событие из чата не даёт дополнительных прав. Для атаки игрока по чужому NPC мастер должен выполнить бросок или явно применить прибавку через API. Без GM автор броска также ограничен собственными целями.
 
 «При нанесении урона» — отдельный режим: прибавка происходит после положительного `dnd5e.applyDamage` с исходной карточкой чата. Изменение HP вручную, лечение, нулевой урон и урон без ссылки на предмет не подходят. Урон в temp HP учитывается, если D&D5e сообщает положительный урон. Повторное применение одной карточки к одному Actor не начисляет ресурс повторно; новый бросок должен иметь новую карточку.
 
 При активном **Midi-QOL** нативная обработка попаданий отключается, вместо неё используются `midi-qol.RollComplete` и `hitTargets`. Совместимость зависит от версии Midi-QOL; его установка не обязательна. Режим урона опирается именно на нативный `applyDamage`; для рабочих процессов других модулей используйте режим попадания или API.
+
+Если другая автоматизация или сетевой сбой отклоняет сохранение, модуль пытается отменить собственные изменения эффектов и восстановить снятые эффекты. Если откат также отклонён, появляется явное уведомление: проверьте шкалу и эффекты Actor вручную. Это не распределённая транзакция сервера.
 
 ## Правила порогов
 
@@ -132,6 +134,8 @@ npm run check
 npm run build
 ```
 
+Для статического просмотра трёх окон в браузере: `node tools/preview.mjs`, затем откройте `dist/preview.html`. Это визуальный стенд, не эмулятор Foundry.
+
 Установочный архив: `dist/silverlane-resource-bars.zip`; манифест для Release: `dist/module.json`. В архив не входят зависимости разработки, тесты и `.git`. Для запуска в Foundry сборка и Node.js не требуются.
 
 Автотесты покрывают переходы порогов, эффекты, права, синтетических Actor, защиту от повторных событий, адаптеры D&D5e/Midi, шаблоны, формы, приватность полос и установочный ZIP. Они используют узкие имитации API Foundry, а не лицензированный сервер. Перед игрой проверьте в тестовом мире: +5 при попадании/отсутствие прибавки при промахе, 95 → 100 → Paralyzed + 0, лечение и разные значения двух несвязанных токенов.
@@ -140,6 +144,6 @@ npm run build
 
 ## English summary
 
-Standalone Foundry v14.367+ / D&D5e 6.1+ resource tracker. Create a Script macro containing `await game.modules.get("silverlane-resource-bars").api.open();`, or press Alt+R. GMs configure world resources through module settings and attack rules through the Item sheet header button. The default nerve damage bar warns at 20 and applies Paralyzed/reset-to-zero at 100. Gold ticks record previous threshold crossings. “Zero” preserves sticky effects/history; “Treat” removes only this resource's effects and history. Native hits require targeted tokens and a connected GM for foreign-Actor writes. Midi-QOL is optional. Install a release ZIP into `Data/modules/silverlane-resource-bars/`; before the first release use the Actions artifact or `npm ci && npm run build`.
+Standalone Foundry v14.367+ / D&D5e 6.1+ resource tracker. Create a Script macro containing `await game.modules.get("silverlane-resource-bars").api.open();`, or press Alt+R. GMs configure world resources through module settings and attack rules through the Item sheet header button. The default nerve damage bar warns at 20 and applies Paralyzed/reset-to-zero at 100. Gold ticks record previous threshold crossings. “Zero” preserves sticky effects/history; “Treat” removes only this resource's effects and history. Native hits require targeted tokens. Only GM-authored attacks can automate foreign-Actor writes; player-authored attacks remain limited to that player's owned Actors. Midi-QOL is optional. Install a release ZIP into `Data/modules/silverlane-resource-bars/`; before the first release use the Actions artifact or `npm ci && npm run build`.
 
 MIT license.

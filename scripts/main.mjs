@@ -58,8 +58,8 @@ async function configureItem(item) {
 function addSheetAction(app, element) {
   const document = app.document;
   if (!["Actor", "Item"].includes(document?.documentName) || !document.isOwner || (document.documentName === "Item" && !game.user.isGM)) return;
-  const root = element instanceof HTMLElement ? element : app.element;
-  const header = root?.querySelector(".window-header");
+  // v14 supplies the inner render fragment; the window header belongs to the outer frame.
+  const header = app.element?.querySelector(".window-header") ?? element?.querySelector?.(".window-header");
   if (!header || header.querySelector(".srb-sheet-button")) return;
   const button = document.documentName === "Actor" ? "Tracker" : "AttackRules";
   const node = globalThis.document.createElement("button");

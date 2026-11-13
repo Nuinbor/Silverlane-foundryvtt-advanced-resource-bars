@@ -38,7 +38,8 @@ test("terminal transition creates system-aware status and persists after numeric
   assert.equal(stateOf(actor).value, 0);
   assert.equal(actor.effects.length, 1);
   assert.equal(actor.effects[0].type, "condition");
-  assert.deepEqual(actor.effects[0].system, { special: true });
+  assert.equal(actor.effects[0].system.special, true);
+  assert.equal(actor.effects[0].system.type, "paralyzed");
   assert.deepEqual(actor.effects[0].statuses, ["paralyzed"]);
   await service.reset(actor, "nerve-damage");
   assert.equal(actor.effects.length, 1);
@@ -59,7 +60,7 @@ test("current-value custom effects are removed below threshold", async () => {
   const { actor, service, definitions } = setup();
   Object.assign(definitions[0].thresholds[0], { mode: "current", changes: [{ key: "system.attributes.ac.bonus", mode: 2, value: "-2" }] });
   await service.set(actor, "nerve-damage", 25);
-  assert.equal(actor.effects[0].changes[0].value, "-2");
+  assert.equal(actor.effects[0].system.changes[0].value, "-2");
   await service.adjust(actor, "nerve-damage", -10);
   assert.equal(actor.effects.length, 0);
 });
@@ -100,13 +101,91 @@ test("effect preparation failure does not consume history or event dedup token",
   assert.equal(actor.updates.length, 0);
 });
 
+test("a failed effect preparation never mutates Foundry's live flag object", async () => {
+  const { actor, definitions } = setup();
+  actor.flags[MODULE_ID] = { resources: { "nerve-damage": { value: 95, reached: ["warning"], cycles: 0, enabled: true } } };
+  definitions[0].thresholds[1].status = "unknown";
+  const service = new ResourceService({ definitions: () => definitions, statusEffect: statusFixture });
+  await assert.rejects(service.adjust(actor, "nerve-damage", 5), /Unknown status/);
+  assert.equal(stateOf(actor).value, 95);
+  assert.deepEqual(stateOf(actor).reached, ["warning"]);
+  assert.equal(stateOf(actor).cycles, 0);
+});
+
+test("a rejected document update leaves the previous live flag state intact", async () => {
+  const { actor, service } = setup();
+  await service.set(actor, "nerve-damage", 10);
+  actor.update = async () => { throw new Error("Network write rejected"); };
+  await assert.rejects(service.adjust(actor, "nerve-damage", 5), /Network write rejected/);
+  assert.equal(stateOf(actor).value, 10);
+});
+
 test("buildEffect strips inherited IDs, retains system statuses and adds custom changes", async () => {
   const threshold = { ...defaultDefinitions()[0].thresholds[1], duration: 60, changes: [{ key: "system.attributes.ac.bonus", mode: 2, value: "-2" }] };
   const effect = await buildEffect(defaultDefinitions()[0], threshold, async () => ({
-    _id: "original", ...await statusFixture("paralyzed"), changes: [{ key: "system.test", mode: 5, value: "1" }]
+    _id: "original", ...await statusFixture("paralyzed"), system: { type: "paralyzed", changes: [{ key: "system.test", type: "override", phase: "initial", value: "1" }] }
   }), 1234);
   assert.equal(effect._id, undefined);
-  assert.equal(effect.changes.length, 2);
-  assert.deepEqual(effect.duration, { seconds: 60, startTime: 1234 });
+  assert.equal(effect.system.changes.length, 2);
+  assert.deepEqual(effect.duration, { value: 60, units: "seconds", expiry: null, expired: false });
+  assert.equal(effect.start.time, 1234);
   assert.equal(effect.flags[MODULE_ID].thresholdId, "paralysis");
+});
+
+test("v14 effect payload preserves native system changes and appends configured modifiers", async () => {
+  const definition = defaultDefinitions()[0];
+  const threshold = { ...definition.thresholds[1], duration: 60, changes: [{ key: "system.attributes.ac.bonus", mode: 2, value: "-2" }] };
+  const effect = await buildEffect(definition, threshold, async () => ({
+    type: "condition", system: { type: "paralyzed", changes: [{ key: "system.test", type: "override", phase: "initial", value: "1" }] },
+    statuses: ["paralyzed", "incapacitated"], duration: { value: null, units: "seconds", expiry: null, expired: false }, start: null
+  }), 1234);
+  assert.equal(effect.changes, undefined);
+  assert.equal(effect.system.changes.length, 2);
+  assert.equal(effect.system.changes[1].type, "add");
+  assert.equal(effect.system.changes[1].phase, "initial");
+  assert.deepEqual(effect.statuses, ["paralyzed", "incapacitated"]);
+  assert.deepEqual(effect.duration, { value: 60, units: "seconds", expiry: null, expired: false });
+  assert.equal(effect.start.time, 1234);
+});
+
+test("custom-only v14 effects use the D&D5e base type and native system.changes", async () => {
+  const definition = defaultDefinitions()[0];
+  const threshold = { ...definition.thresholds[0], changes: [{ key: "system.attributes.ac.bonus", type: "add", phase: "initial", value: "-2" }] };
+  const effect = await buildEffect(definition, threshold, statusFixture);
+  assert.equal(effect.type, "base");
+  assert.equal(effect.system.changes[0].type, "add");
+  assert.equal(effect.system.changes[0].value, "-2");
+});
+
+test("failed resource persistence compensates newly created terminal effects", async () => {
+  const { actor, service } = setup();
+  await service.set(actor, "nerve-damage", 95);
+  actor.update = async () => { throw new Error("Write rejected"); };
+  await assert.rejects(service.adjust(actor, "nerve-damage", 5), /Write rejected/);
+  assert.equal(stateOf(actor).value, 95);
+  assert.equal(actor.effects.length, 0);
+});
+
+test("failed treatment restores removed managed effects with original IDs", async () => {
+  const { actor, service } = setup();
+  await service.set(actor, "nerve-damage", 100);
+  const previous = structuredClone(actor.effects);
+  actor.update = async () => { throw new Error("Write rejected"); };
+  await assert.rejects(service.reset(actor, "nerve-damage", { clearHistory: true }), /Write rejected/);
+  assert.deepEqual(actor.effects, previous);
+  assert.deepEqual(stateOf(actor).reached, ["warning", "paralysis"]);
+});
+
+test("refused effect creation does not consume threshold history", async () => {
+  const { actor, service } = setup();
+  actor.createEmbeddedDocuments = async () => [];
+  await assert.rejects(service.set(actor, "nerve-damage", 100), /effect.*refused/i);
+  assert.equal(stateOf(actor), undefined);
+});
+
+test("refused Actor updates compensate effects just like thrown errors", async () => {
+  const { actor, service } = setup();
+  actor.update = async () => undefined;
+  await assert.rejects(service.set(actor, "nerve-damage", 100), /update.*refused/i);
+  assert.equal(actor.effects.length, 0);
 });

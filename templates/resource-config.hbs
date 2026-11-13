@@ -28,7 +28,7 @@
       <div class="srb-grid">
         <label>{{localize "SRB.Behavior"}}<select name="mode"><option value="sticky" {{#if sticky}}selected{{/if}}>{{localize "SRB.Sticky"}}</option><option value="current" {{#if current}}selected{{/if}}>{{localize "SRB.Current"}}</option></select></label>
         <label>{{localize "SRB.Status"}}<select name="status"><option value="">{{localize "SRB.None"}}</option>{{#each statuses}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
-        <label>{{localize "SRB.Duration"}}<input type="number" name="duration" value="{{duration}}" min="0" max="31536000" step="any"></label>
+        <label>{{localize "SRB.Duration"}}<input type="number" name="duration" value="{{duration}}" min="0" max="31536000" step="1"></label>
       </div>
       <details><summary>{{localize "SRB.CustomChanges"}}</summary><p class="srb-hint">{{localize "SRB.ChangesHint"}}</p><textarea name="changes" class="srb-code" rows="4" spellcheck="false">{{changesJson}}</textarea></details>
     </section>

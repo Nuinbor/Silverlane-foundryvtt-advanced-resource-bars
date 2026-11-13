@@ -30,10 +30,10 @@
 
 **Interfaces:** `validateDefinitions(definitions)`, `transition(definition, state, value)`, `defaultDefinitions()`.
 
-- [ ] Write tests for crossing 20/100, reset-to-zero, sticky history, current thresholds, negative/invalid numbers, duplicate IDs and unsafe data.
-- [ ] Run `node --test tests/domain.test.mjs`; verify missing implementation failure.
-- [ ] Implement validation and pure transitions; run tests until green.
-- [ ] Commit the domain and tests.
+- [x] Write tests for crossing 20/100, reset-to-zero, sticky history, current thresholds, negative/invalid numbers, duplicate IDs and unsafe data.
+- [x] Run `node --test tests/domain.test.mjs`; verify missing implementation failure.
+- [x] Implement validation and pure transitions; run tests until green.
+- [x] Commit the domain and tests.
 
 ### Task 2: Actor state and effects
 
@@ -41,9 +41,9 @@
 
 **Interfaces:** `ResourceService({definitions, resolve, statusEffect})` with `get`, `set`, `adjust`, `reset`, `setEnabled`, `applyRules`.
 
-- [ ] Write failing tests for permissions, per-Actor serialization, event replay protection, synthetic Actors, sticky/current effect cleanup and status-data preservation.
-- [ ] Implement service and status conversion consuming Task 1 transition outputs; verify `npm test`.
-- [ ] Commit service and tests.
+- [x] Write failing tests for permissions, per-Actor serialization, event replay protection, synthetic Actors, sticky/current effect cleanup and status-data preservation.
+- [x] Implement service and status conversion consuming Task 1 transition outputs; verify `npm test`.
+- [x] Commit service and tests.
 
 ### Task 3: Combat adapters
 
@@ -51,9 +51,9 @@
 
 **Interfaces:** `CombatIntegration` with `onAttackMessage`, `onDamage`, `onMidiComplete`, `applyItem`.
 
-- [ ] Write failing tests for v6.1 associated Item/activity lookup, evaluated targets, misses, healing, GM election, Midi exclusion and activity filters.
-- [ ] Implement adapters using `ResourceService.applyRules`; verify `npm test`.
-- [ ] Commit combat adapters and tests.
+- [x] Write failing tests for v6.1 associated Item/activity lookup, evaluated targets, misses, healing, GM election, Midi exclusion and activity filters.
+- [x] Implement adapters using `ResourceService.applyRules`; verify `npm test`.
+- [x] Commit combat adapters and tests.
 
 ### Task 4: Foundry UI and distribution
 
@@ -61,12 +61,12 @@
 
 **Interfaces:** `game.modules.get("silverlane-resource-bars").api` exposes tracker/configuration/service and manual item application.
 
-- [ ] Write failing rendering, bootstrap, manifest, localization and packaging tests.
-- [ ] Implement ApplicationV2 tracker/editor/item rules, owner-only canvas overlays and Foundry hooks.
-- [ ] Add macro examples, installation guide, CI and tag-triggered zip release tooling.
-- [ ] Run full tests, syntax validation and a package build; commit.
+- [x] Write failing rendering, bootstrap, manifest, localization and packaging tests.
+- [x] Implement ApplicationV2 tracker/editor/item rules, owner-only canvas overlays and Foundry hooks.
+- [x] Add macro examples, installation guide, CI and tag-triggered zip release tooling.
+- [x] Run full tests, syntax validation and a package build; commit.
 
 ### Finish
 
-- [ ] Request one independent whole-branch code review; fix important findings with regression tests.
+- [x] Request one independent whole-branch code review; fix important findings with regression tests.
 - [ ] Re-run all verification, fast-forward main if appropriate, and push requested code.

@@ -11,7 +11,7 @@ globalThis.foundry = { applications: { api: {
   ApplicationV2: class { constructor(options = {}) { this.options = options; } },
   HandlebarsApplicationMixin: Base => Base
 } } };
-const { trackerContext, readDefinitionForm, readItemRulesForm, ResourceTracker } = await import("../scripts/ui.mjs");
+const { trackerContext, readDefinitionForm, readItemRulesForm, ResourceTracker, ResourceConfig } = await import("../scripts/ui.mjs");
 
 test("tracker renders escaped user text, threshold history, and editable numeric values", async () => {
   const definitions = defaultDefinitions();
@@ -64,4 +64,28 @@ test("item editor reads selected activity and trigger with a numeric delta", () 
     <input name="amount" value="5"><select name="trigger"><option value="hit">Hit</option></select>
     <select name="activityId"><option value="bite">Bite</option></select></section>`;
   assert.deepEqual(readItemRulesForm(form), [{ resourceId: "nerve-damage", amount: 5, trigger: "hit", activityId: "bite" }]);
+});
+
+test("D&D5e 6.1 status dictionaries populate and save the GM resource editor", async () => {
+  const definitions = defaultDefinitions();
+  let saved;
+  let closed = false;
+  globalThis.game = {
+    user: { isGM: true }, i18n: { localize: key => key },
+    settings: { get: () => definitions, async set(scope, key, value) { saved = value; } }
+  };
+  globalThis.CONFIG = { statusEffects: {
+    paralyzed: { id: "paralyzed", name: "Paralyzed" }, poisoned: { id: "poisoned", name: "Poisoned" }
+  } };
+  globalThis.ui = { notifications: { info() {} } };
+  const app = new ResourceConfig();
+  const context = await app._prepareContext();
+  assert.equal(context.selected.thresholds[1].statuses.find(s => s.id === "paralyzed").selected, true);
+  const form = new Window().document.createElement("form");
+  form.innerHTML = Handlebars.compile(await readFile(new URL("../templates/resource-config.hbs", import.meta.url), "utf8"))(context);
+  app.element = form;
+  app.close = async () => { closed = true; };
+  await ResourceConfig.submit.call(app);
+  assert.equal(saved?.[0].thresholds[1].status, "paralyzed");
+  assert.equal(closed, true);
 });
